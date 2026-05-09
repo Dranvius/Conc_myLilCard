@@ -1,0 +1,393 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CompanyStatus {
+  LEAD
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum OpportunityStage {
+  NEW
+  CONTACTED
+  QUALIFIED
+  PROPOSAL_SENT
+  NEGOTIATION
+  WON
+  LOST
+}
+
+enum ProposalStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum SaleStatus {
+  PENDING
+  CONFIRMED
+  CLOSED
+  CANCELLED
+}
+
+enum ServiceOrderStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ServiceOrderPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model User {
+  id                    String             @id @default(cuid())
+  name                  String
+  email                 String             @unique
+  passwordHash          String
+  roleId                String
+  businessUnitId        String?
+  refreshTokenHash      String?
+  isActive              Boolean            @default(true)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  role                  Role               @relation(fields: [roleId], references: [id])
+  businessUnit          BusinessUnit?      @relation(fields: [businessUnitId], references: [id])
+  ownedOpportunities    SalesOpportunity[] @relation("OpportunityOwner")
+  sales                 Sale[]             @relation("SaleOwner")
+  assignedServiceOrders ServiceOrder[]     @relation("AssignedOperator")
+  auditLogs             AuditLog[]
+  notifications         Notification[]
+
+  @@index([email])
+  @@index([roleId])
+  @@index([businessUnitId])
+  @@index([createdAt])
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  users       User[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  description String?
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model BusinessUnit {
+  id            String             @id @default(cuid())
+  name          String             @unique
+  description   String?
+  isActive      Boolean            @default(true)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  users         User[]
+  companies     Company[]
+  products      Product[]
+  opportunities SalesOpportunity[]
+
+  @@index([createdAt])
+}
+
+model Company {
+  id             String             @id @default(cuid())
+  name           String
+  legalName      String?
+  taxId          String             @unique
+  phone          String?
+  email          String?
+  website        String?
+  address        String?
+  city           String?
+  country        String?
+  businessUnitId String
+  status         CompanyStatus
+  deletedAt      DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  businessUnit   BusinessUnit       @relation(fields: [businessUnitId], references: [id])
+  contacts       Contact[]
+  opportunities  SalesOpportunity[]
+  sales          Sale[]
+  serviceOrders  ServiceOrder[]
+  invoices       Invoice[]
+  reviews        Review[]
+
+  @@index([taxId])
+  @@index([businessUnitId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model Contact {
+  id          String               @id @default(cuid())
+  companyId   String
+  firstName   String
+  lastName    String
+  position    String?
+  email       String?
+  phone       String?
+  notes       String?
+  deletedAt   DateTime?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  company     Company              @relation(fields: [companyId], references: [id])
+  opportunities SalesOpportunity[]
+  serviceOrders ServiceOrder[]
+
+  @@index([companyId])
+  @@index([email])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model Product {
+  id             String         @id @default(cuid())
+  businessUnitId String
+  name           String
+  sku            String         @unique
+  category       String
+  description    String?
+  unitPrice      Decimal        @db.Decimal(12, 2)
+  stock          Int            @default(0)
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  businessUnit   BusinessUnit   @relation(fields: [businessUnitId], references: [id])
+  proposalItems  ProposalItem[]
+
+  @@index([businessUnitId])
+  @@index([category])
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+model SalesOpportunity {
+  id                String           @id @default(cuid())
+  companyId         String
+  contactId         String?
+  ownerId           String
+  businessUnitId    String
+  title             String
+  stage             OpportunityStage
+  estimatedValue    Decimal          @db.Decimal(12, 2)
+  probability       Int
+  expectedCloseDate DateTime?
+  notes             String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  company           Company          @relation(fields: [companyId], references: [id])
+  contact           Contact?         @relation(fields: [contactId], references: [id])
+  owner             User             @relation("OpportunityOwner", fields: [ownerId], references: [id])
+  businessUnit      BusinessUnit     @relation(fields: [businessUnitId], references: [id])
+  proposals         Proposal[]
+  sales             Sale[]
+
+  @@index([companyId])
+  @@index([contactId])
+  @@index([ownerId])
+  @@index([businessUnitId])
+  @@index([stage])
+  @@index([createdAt])
+}
+
+model Proposal {
+  id          String         @id @default(cuid())
+  opportunityId String
+  code        String         @unique
+  title       String
+  status      ProposalStatus
+  totalAmount Decimal        @db.Decimal(12, 2)
+  validUntil  DateTime?
+  notes       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  opportunity SalesOpportunity @relation(fields: [opportunityId], references: [id])
+  items       ProposalItem[]
+  sales       Sale[]
+
+  @@index([opportunityId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ProposalItem {
+  id        String   @id @default(cuid())
+  proposalId String
+  productId String
+  quantity  Int
+  unitPrice Decimal  @db.Decimal(12, 2)
+  discount  Decimal  @db.Decimal(12, 2)
+  total     Decimal  @db.Decimal(12, 2)
+  proposal  Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@index([proposalId])
+  @@index([productId])
+}
+
+model Sale {
+  id            String     @id @default(cuid())
+  opportunityId String
+  proposalId    String?
+  companyId     String
+  ownerId       String
+  status        SaleStatus
+  totalAmount   Decimal    @db.Decimal(12, 2)
+  closedAt      DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  opportunity   SalesOpportunity @relation(fields: [opportunityId], references: [id])
+  proposal      Proposal?  @relation(fields: [proposalId], references: [id])
+  company       Company    @relation(fields: [companyId], references: [id])
+  owner         User       @relation("SaleOwner", fields: [ownerId], references: [id])
+  serviceOrders ServiceOrder[]
+  invoices      Invoice[]
+
+  @@index([opportunityId])
+  @@index([proposalId])
+  @@index([companyId])
+  @@index([ownerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ServiceOrder {
+  id                 String               @id @default(cuid())
+  companyId          String
+  contactId          String?
+  saleId             String?
+  assignedOperatorId String?
+  code               String               @unique
+  type               String
+  priority           ServiceOrderPriority
+  status             ServiceOrderStatus
+  description        String
+  scheduledAt        DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  company            Company              @relation(fields: [companyId], references: [id])
+  contact            Contact?             @relation(fields: [contactId], references: [id])
+  sale               Sale?                @relation(fields: [saleId], references: [id])
+  assignedOperator   User?                @relation("AssignedOperator", fields: [assignedOperatorId], references: [id])
+  reviews            Review[]
+
+  @@index([companyId])
+  @@index([contactId])
+  @@index([saleId])
+  @@index([assignedOperatorId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  saleId        String
+  companyId     String
+  invoiceNumber String        @unique
+  status        InvoiceStatus
+  subtotal      Decimal       @db.Decimal(12, 2)
+  tax           Decimal       @db.Decimal(12, 2)
+  total         Decimal       @db.Decimal(12, 2)
+  issuedAt      DateTime
+  dueDate       DateTime
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  sale          Sale          @relation(fields: [saleId], references: [id])
+  company       Company       @relation(fields: [companyId], references: [id])
+
+  @@index([saleId])
+  @@index([companyId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([createdAt])
+}
+
+model Review {
+  id             String        @id @default(cuid())
+  companyId      String
+  serviceOrderId String?
+  rating         Int
+  comment        String?
+  createdAt      DateTime      @default(now())
+  company        Company       @relation(fields: [companyId], references: [id])
+  serviceOrder   ServiceOrder? @relation(fields: [serviceOrderId], references: [id])
+
+  @@index([companyId])
+  @@index([serviceOrderId])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String
+  metadata  Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
