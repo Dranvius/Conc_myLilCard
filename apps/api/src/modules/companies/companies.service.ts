@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, StreamableFile } from '@nestjs/common';
+import * as ExcelJS from 'exceljs';
+import { Buffer } from 'buffer';
 import { CompanyStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -186,5 +188,80 @@ export class CompaniesService {
     });
 
     return { success: true };
+  }
+
+  async exportToExcel(query: CompanyQueryDto) {
+    const where = {
+      status: query.status || undefined,
+      businessUnitId: query.businessUnitId || undefined,
+      deletedAt: null,
+      OR: query.search
+        ? [
+            { name: { contains: query.search, mode: 'insensitive' as const } },
+            { legalName: { contains: query.search, mode: 'insensitive' as const } },
+            { taxId: { contains: query.search, mode: 'insensitive' as const } },
+          ]
+        : undefined,
+    };
+
+    const companies = await this.prisma.company.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        businessUnit: true,
+        _count: {
+          select: {
+            contacts: true,
+            opportunities: true,
+            sales: true,
+          },
+        },
+      },
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Empresas');
+
+    worksheet.columns = [
+      { header: 'Nombre', key: 'name', width: 30 },
+      { header: 'Razón Social', key: 'legalName', width: 30 },
+      { header: 'NIT/RUT', key: 'taxId', width: 15 },
+      { header: 'Tipo', key: 'customerType', width: 15 },
+      { header: 'Estado', key: 'status', width: 15 },
+      { header: 'Unidad de Negocio', key: 'businessUnit', width: 20 },
+      { header: 'Ciudad', key: 'city', width: 15 },
+      { header: 'Teléfono', key: 'phone', width: 20 },
+      { header: 'Email', key: 'email', width: 30 },
+      { header: 'Contactos', key: 'contactsCount', width: 10 },
+      { header: 'Oportunidades', key: 'opportunitiesCount', width: 15 },
+    ];
+
+    // Estilo para la cabecera
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF0F6C8D' }, // Color primario de RespiraCRM
+    };
+
+    companies.forEach((company) => {
+      worksheet.addRow({
+        name: company.name,
+        legalName: company.legalName || 'N/A',
+        taxId: company.taxId || 'N/A',
+        customerType: company.customerType,
+        status: company.status,
+        businessUnit: company.businessUnit.name,
+        city: company.city || 'N/A',
+        phone: company.phone || 'N/A',
+        email: company.email || 'N/A',
+        contactsCount: company._count.contacts,
+        opportunitiesCount: company._count.opportunities,
+      });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const nodeBuffer = Buffer.from(buffer as ArrayBuffer);
+    return new StreamableFile(nodeBuffer);
   }
 }

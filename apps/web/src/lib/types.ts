@@ -122,6 +122,9 @@ export interface Proposal {
   code: string;
   title: string;
   status: string;
+  subtotal: number | string;
+  taxRate: number | string;
+  taxAmount: number | string;
   totalAmount: number | string;
   validUntil?: string | null;
   notes?: string | null;
@@ -207,6 +210,15 @@ export interface AuditLog {
     name: string;
     email?: string;
   } | null;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
 }
 
 export type Paged<T> = PaginatedResponse<T>;

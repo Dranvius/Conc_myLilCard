@@ -12,6 +12,7 @@ import {
   Stethoscope,
   Users,
   BarChart3,
+  Calendar,
 } from 'lucide-react';
 
 export const navIcons = {
@@ -28,4 +29,5 @@ export const navIcons = {
   shield: Shield,
   settings: Settings,
   'bar-chart': BarChart3,
+  calendar: Calendar,
 };

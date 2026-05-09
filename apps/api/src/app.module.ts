@@ -26,6 +26,8 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { ActivitiesModule } from './modules/activities/activities.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { CalendarModule } from './modules/calendar/calendar.module';
 
 @Module({
   imports: [
@@ -58,6 +60,8 @@ import { ActivitiesModule } from './modules/activities/activities.module';
     AdminModule,
     ActivitiesModule,
     SearchModule,
+    NotificationsModule,
+    CalendarModule,
   ],
   providers: [
     {

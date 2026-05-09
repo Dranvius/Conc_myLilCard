@@ -11,10 +11,14 @@ import {
 import { ProposalQueryDto } from './dto/proposal-query.dto';
 import { UpdateProposalStatusDto } from './dto/update-proposal-status.dto';
 import { UpdateProposalDto } from './dto/update-proposal.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ProposalsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async findMany(query: ProposalQueryDto) {
     const { page, limit, skip } = resolvePagination(query.page, query.limit);
@@ -241,8 +245,8 @@ export class ProposalsService {
     });
   }
 
-  updateStatus(id: string, updateProposalStatusDto: UpdateProposalStatusDto) {
-    return this.prisma.proposal.update({
+  async updateStatus(id: string, updateProposalStatusDto: UpdateProposalStatusDto) {
+    const proposal = await this.prisma.proposal.update({
       where: { id },
       data: {
         status: updateProposalStatusDto.status,
@@ -261,5 +265,16 @@ export class ProposalsService {
         },
       },
     });
+
+    // Crear notificación si la propuesta fue aceptada
+    if (updateProposalStatusDto.status === 'ACCEPTED') {
+      await this.notifications.create({
+        userId: proposal.opportunity.ownerId,
+        title: '¡Propuesta aceptada!',
+        message: `La propuesta comercial ${proposal.code} dirigida a ${proposal.opportunity.company.name} ha sido aprobada.`,
+      });
+    }
+
+    return proposal;
   }
 }

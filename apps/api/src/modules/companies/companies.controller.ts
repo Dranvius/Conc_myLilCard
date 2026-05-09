@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  Header,
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permissions } from '../../common/decorators/permissions.decorator';
@@ -26,6 +27,15 @@ export class CompaniesController {
   @ApiOperation({ summary: 'Listar empresas con filtros y búsqueda' })
   findMany(@Query() query: CompanyQueryDto) {
     return this.companiesService.findMany(query);
+  }
+
+  @Get('export/excel')
+  @Permissions('companies.read')
+  @ApiOperation({ summary: 'Exportar listado de empresas a Excel' })
+  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  @Header('Content-Disposition', 'attachment; filename="empresas.xlsx"')
+  exportToExcel(@Query() query: CompanyQueryDto) {
+    return this.companiesService.exportToExcel(query);
   }
 
   @Get(':id')
