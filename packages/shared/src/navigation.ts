@@ -11,9 +11,11 @@ export interface NavItemDefinition {
     | 'badge-dollar-sign'
     | 'stethoscope'
     | 'receipt'
+    | 'receipt'
     | 'star'
     | 'shield'
-    | 'settings';
+    | 'settings'
+    | 'bar-chart';
   adminOnly?: boolean;
 }
 
@@ -29,5 +31,6 @@ export const appNavigation: NavItemDefinition[] = [
   { label: 'Facturas', href: '/invoices', iconKey: 'receipt' },
   { label: 'Reseñas', href: '/reviews', iconKey: 'star' },
   { label: 'Admin', href: '/admin', iconKey: 'shield', adminOnly: true },
+  { label: 'Reportes', href: '/reports', iconKey: 'bar-chart' },
   { label: 'Ajustes', href: '/settings', iconKey: 'settings' },
 ];

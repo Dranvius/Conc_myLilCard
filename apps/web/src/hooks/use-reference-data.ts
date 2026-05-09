@@ -25,7 +25,7 @@ export function useCompanies() {
     queryKey: ['companies-reference'],
     queryFn: async () => {
       const response = await apiRequest<{ data: Company[] }>(
-        '/companies?limit=200',
+        '/companies?limit=100',
       );
       return response.data;
     },
@@ -37,7 +37,7 @@ export function useUsers() {
     queryKey: ['users-reference'],
     queryFn: async () => {
       const response = await apiRequest<{ data: CurrentUser[] }>(
-        '/users?limit=200',
+        '/users?limit=100',
       );
       return response.data;
     },
@@ -56,7 +56,7 @@ export function useProducts() {
     queryKey: ['products-reference'],
     queryFn: async () => {
       const response = await apiRequest<{ data: Product[] }>(
-        '/products?limit=200',
+        '/products?limit=100',
       );
       return response.data;
     },
@@ -68,7 +68,7 @@ export function useOpportunities() {
     queryKey: ['opportunities-reference'],
     queryFn: async () => {
       const response = await apiRequest<{ data: Opportunity[] }>(
-        '/opportunities?limit=200',
+        '/opportunities?limit=100',
       );
       return response.data;
     },
@@ -79,7 +79,7 @@ export function useSales() {
   return useQuery({
     queryKey: ['sales-reference'],
     queryFn: async () => {
-      const response = await apiRequest<{ data: Sale[] }>('/sales?limit=200');
+      const response = await apiRequest<{ data: Sale[] }>('/sales?limit=100');
       return response.data;
     },
   });
@@ -90,7 +90,7 @@ export function useServiceOrders() {
     queryKey: ['service-orders-reference'],
     queryFn: async () => {
       const response = await apiRequest<{ data: ServiceOrder[] }>(
-        '/service-orders?limit=200',
+        '/service-orders?limit=100',
       );
       return response.data;
     },

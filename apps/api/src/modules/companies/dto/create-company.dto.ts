@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { CompanyStatus } from '@prisma/client';
+import { CompanyStatus, CustomerType } from '@prisma/client';
 import { IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
 
 export class CreateCompanyDto {
@@ -12,9 +12,15 @@ export class CreateCompanyDto {
   @IsString()
   legalName?: string;
 
-  @ApiProperty()
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
-  taxId!: string;
+  taxId?: string;
+
+  @ApiProperty({ enum: CustomerType, required: false })
+  @IsOptional()
+  @IsEnum(CustomerType)
+  customerType?: CustomerType;
 
   @ApiProperty({ required: false })
   @IsOptional()

@@ -40,7 +40,7 @@ export function Sidebar({ user }: { user: CurrentUser }) {
                 className={cn(
                   'flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition',
                   active
-                    ? 'bg-white text-primary-strong shadow-lg'
+                    ? 'bg-white !text-[#0f6c8d] shadow-lg'
                     : 'text-white/80 hover:bg-white/10 hover:text-white',
                 )}
               >
