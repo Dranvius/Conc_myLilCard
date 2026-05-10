@@ -89,8 +89,8 @@ export default function ReportsPage() {
                     tickFormatter={(value) => `$${value / 1000000}M`}
                     tick={{ fontSize: 12 }}
                   />
-                  <Tooltip 
-                    formatter={(value: number) => [formatCurrency(value), 'Total']}
+                  <Tooltip
+                    formatter={(value) => [formatCurrency(Number(value ?? 0)), 'Total']}
                     labelStyle={{ color: '#111827' }}
                   />
                   <Line type="monotone" dataKey="totalAmount" stroke="#10B981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
@@ -115,8 +115,11 @@ export default function ReportsPage() {
                     tickFormatter={(value) => `$${value / 1000000}M`}
                     tick={{ fontSize: 12 }}
                   />
-                  <Tooltip 
-                    formatter={(value: number) => [formatCurrency(value), 'Valor Ponderado']}
+                  <Tooltip
+                    formatter={(value) => [
+                      formatCurrency(Number(value ?? 0)),
+                      'Valor Ponderado',
+                    ]}
                     labelStyle={{ color: '#111827' }}
                   />
                   <Bar dataKey="expectedValue" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
