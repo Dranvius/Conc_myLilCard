@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { GlobalSearch } from '@/components/layout/GlobalSearch';
 import { NotificationBell } from '@/components/layout/notification-bell';
+import { QuickActionActivity } from '@/components/activities/QuickActionActivity';
 import { apiRequest } from '@/lib/api-client';
 import type { CurrentUser } from '@/lib/types';
 
@@ -31,6 +32,7 @@ export function Topbar({ user }: { user: CurrentUser }) {
       </div>
 
       <div className="flex items-center gap-3">
+        <QuickActionActivity />
         <NotificationBell />
         <div className="hidden items-center gap-3 rounded-2xl border border-border bg-white px-4 py-2 md:flex">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary-soft text-primary">

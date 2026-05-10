@@ -183,6 +183,8 @@ model Company {
   address        String?
   city           String?
   country        String?
+  latitude       Float?
+  longitude      Float?
   businessUnitId String
   status         CompanyStatus
   deletedAt      DateTime?

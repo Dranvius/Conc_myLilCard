@@ -11,6 +11,7 @@ import type {
   Role,
   Sale,
   ServiceOrder,
+  Contact,
 } from '@/lib/types';
 
 export function useBusinessUnits() {
@@ -26,6 +27,18 @@ export function useCompanies() {
     queryFn: async () => {
       const response = await apiRequest<{ data: Company[] }>(
         '/companies?limit=100',
+      );
+      return response.data;
+    },
+  });
+}
+
+export function useContacts() {
+  return useQuery({
+    queryKey: ['contacts-reference'],
+    queryFn: async () => {
+      const response = await apiRequest<{ data: Contact[] }>(
+        '/contacts?limit=100',
       );
       return response.data;
     },

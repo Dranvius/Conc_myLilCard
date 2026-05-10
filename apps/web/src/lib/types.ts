@@ -49,6 +49,8 @@ export interface Company {
   address?: string | null;
   city?: string | null;
   country?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   status: string;
   createdAt: string;
   businessUnit?: BusinessUnit;

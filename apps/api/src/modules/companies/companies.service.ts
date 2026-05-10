@@ -15,6 +15,42 @@ import { UpdateCompanyDto } from './dto/update-company.dto';
 export class CompaniesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private async geocodeAddress(address?: string, city?: string, country?: string): Promise<{ latitude: number, longitude: number } | null> {
+    if (!address && !city) return null;
+    
+    const tryGeocode = async (queryStr: string) => {
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryStr)}`, {
+          headers: {
+            'User-Agent': 'RespiraCRM/1.0',
+          }
+        });
+        const data = await response.json();
+        if (data && data.length > 0) {
+          return {
+            latitude: parseFloat(data[0].lat),
+            longitude: parseFloat(data[0].lon),
+          };
+        }
+      } catch (error) {
+        console.error('Error geocoding address:', error);
+      }
+      return null;
+    };
+
+    // Try full address first
+    const fullQuery = [address, city, country].filter(Boolean).join(', ');
+    let coords = await tryGeocode(fullQuery);
+
+    // Fallback: If address fails (common with LATAM formats like "Carrera X # Y"), try just the city
+    if (!coords && address && city) {
+      const cityQuery = [city, country].filter(Boolean).join(', ');
+      coords = await tryGeocode(cityQuery);
+    }
+
+    return coords;
+  }
+
   async findMany(query: CompanyQueryDto) {
     const { page, limit, skip } = resolvePagination(query.page, query.limit);
     const where = {
@@ -159,19 +195,41 @@ export class CompaniesService {
     });
   }
 
-  create(createCompanyDto: CreateCompanyDto) {
+  async create(createCompanyDto: CreateCompanyDto) {
+    let coords = null;
+    if (createCompanyDto.address || createCompanyDto.city) {
+      coords = await this.geocodeAddress(createCompanyDto.address, createCompanyDto.city, createCompanyDto.country);
+    }
+
+    const data = { ...createCompanyDto } as any;
+    if (coords) {
+      data.latitude = coords.latitude;
+      data.longitude = coords.longitude;
+    }
+
     return this.prisma.company.create({
-      data: createCompanyDto,
+      data,
       include: {
         businessUnit: true,
       },
     });
   }
 
-  update(id: string, updateCompanyDto: UpdateCompanyDto) {
+  async update(id: string, updateCompanyDto: UpdateCompanyDto) {
+    let coords = null;
+    if (updateCompanyDto.address || updateCompanyDto.city) {
+      coords = await this.geocodeAddress(updateCompanyDto.address, updateCompanyDto.city, updateCompanyDto.country);
+    }
+
+    const data = { ...updateCompanyDto } as any;
+    if (coords) {
+      data.latitude = coords.latitude;
+      data.longitude = coords.longitude;
+    }
+
     return this.prisma.company.update({
       where: { id },
-      data: updateCompanyDto,
+      data,
       include: {
         businessUnit: true,
       },

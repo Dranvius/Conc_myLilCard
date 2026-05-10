@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { apiRequest } from '@/lib/api-client';
 import { formatCurrency, formatDate } from '@/lib/format';
 import type { Company } from '@/lib/types';
+import { ActivityTimeline } from '@/components/activities/ActivityTimeline';
 
 export default function CompanyDetailPage() {
   const params = useParams<{ id: string }>();
@@ -174,6 +175,10 @@ export default function CompanyDetailPage() {
             )}
           </div>
         </Card>
+      </div>
+
+      <div className="mt-8">
+        <ActivityTimeline companyId={company.id} />
       </div>
     </div>
   );

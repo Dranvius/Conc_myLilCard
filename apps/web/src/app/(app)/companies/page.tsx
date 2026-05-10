@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Download, Plus, SquarePen, Trash2 } from 'lucide-react';
+import { Download, Plus, SquarePen, Trash2, MapPin } from 'lucide-react';
 import { z } from 'zod';
 import { EntityDialog } from '@/components/forms/entity-dialog';
 import { PageHeader } from '@/components/layout/page-header';
@@ -123,6 +123,12 @@ export default function CompaniesPage() {
               <Download className="h-4 w-4 mr-2" />
               Descargar Excel
             </Button>
+            <Link href="/companies/map">
+              <Button variant="secondary" className="gap-2">
+                <MapPin className="h-4 w-4" />
+                Ver Mapa
+              </Button>
+            </Link>
             <Button
               onClick={() => {
                 setEditing(null);
