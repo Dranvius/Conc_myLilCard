@@ -15,11 +15,16 @@ export type CalendarEvent = {
 export class CalendarService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getEvents(from: Date, to: Date, userId: string, role: string): Promise<CalendarEvent[]> {
+  async getEvents(
+    from: Date,
+    to: Date,
+    userId: string,
+    role: string,
+  ): Promise<CalendarEvent[]> {
     // If the user is an admin or manager, they might see all events.
     // For now, let's filter by the user's scope if they are a regular sales rep.
     const isRestricted = role !== 'ADMIN' && role !== 'MANAGER';
-    
+
     const events: CalendarEvent[] = [];
 
     // 1. Opportunities (expected close dates)
@@ -40,7 +45,12 @@ export class CalendarService {
           end: opp.expectedCloseDate,
           type: 'OPPORTUNITY',
           entityId: opp.id,
-          color: opp.probability >= 70 ? '#22C55E' : opp.probability >= 40 ? '#F59E0B' : '#EF4444',
+          color:
+            opp.probability >= 70
+              ? '#22C55E'
+              : opp.probability >= 40
+                ? '#F59E0B'
+                : '#EF4444',
         });
       }
     }
@@ -49,6 +59,7 @@ export class CalendarService {
     const activities = await this.prisma.activity.findMany({
       where: {
         dueDate: { gte: from, lte: to },
+        completedAt: null,
         ...(isRestricted ? { userId } : {}),
       },
     });
@@ -56,15 +67,19 @@ export class CalendarService {
     for (const act of activities) {
       if (act.dueDate) {
         let color = '#6366F1'; // Default Indigo
-        if (act.type === 'MEETING') color = '#8B5CF6'; // Violet
+        if (act.type === 'MEETING')
+          color = '#8B5CF6'; // Violet
         else if (act.type === 'TASK') color = '#3B82F6'; // Blue
-        
+
         events.push({
           id: `act-${act.id}`,
           title: `${act.type === 'MEETING' ? 'Reunión' : 'Tarea'}: ${act.subject}`,
           start: act.dueDate,
           // If meeting, maybe add 1 hour to end time
-          end: act.type === 'MEETING' ? new Date(act.dueDate.getTime() + 60 * 60 * 1000) : act.dueDate,
+          end:
+            act.type === 'MEETING'
+              ? new Date(act.dueDate.getTime() + 60 * 60 * 1000)
+              : act.dueDate,
           type: 'ACTIVITY',
           entityId: act.id,
           color,

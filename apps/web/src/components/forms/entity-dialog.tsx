@@ -21,7 +21,8 @@ export interface DialogField {
     | 'textarea'
     | 'select'
     | 'date'
-    | 'password';
+    | 'password'
+    | 'datetime-local';
   placeholder?: string;
   options?: Array<{ label: string; value: string }>;
 }

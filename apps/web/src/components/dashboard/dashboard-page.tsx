@@ -2,34 +2,41 @@
 
 import { useQuery } from '@tanstack/react-query';
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import {
   BarChart3,
   BriefcaseBusiness,
   ClipboardList,
   ContactRound,
   FileClock,
   Hospital,
+  ListTodo,
 } from 'lucide-react';
-import {
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  BarChart,
-  Bar,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { PageHeader } from '@/components/layout/page-header';
 import { MetricCard } from './metric-card';
-import { EmptyState } from '@/components/ui/empty-state';
+import { StatusBadge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/table';
-import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiRequest } from '@/lib/api-client';
 import { formatCurrency, formatDate, titleize } from '@/lib/format';
-import type { DashboardData } from '@/lib/types';
+import type {
+  ActivityFeedItem,
+  ActivityItem,
+  LeadSourcePerformanceResponse,
+  DashboardData,
+} from '@/lib/types';
 
 const pieColors = [
   '#0f6c8d',
@@ -44,7 +51,33 @@ export function DashboardPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard-metrics'],
     queryFn: () => apiRequest<DashboardData>('/metrics/dashboard'),
+    refetchInterval: 30000,
   });
+
+  const { data: feedData, isLoading: loadingFeed } = useQuery({
+    queryKey: ['dashboard-activity-feed'],
+    queryFn: () =>
+      apiRequest<{ data: ActivityFeedItem[] }>(
+        '/metrics/activity-feed?limit=8',
+      ),
+    refetchInterval: 30000,
+  });
+
+  const { data: followUps = [], isLoading: loadingFollowUps } = useQuery({
+    queryKey: ['dashboard-follow-ups'],
+    queryFn: () => apiRequest<ActivityItem[]>('/activities/follow-ups?limit=6'),
+    refetchInterval: 30000,
+  });
+
+  const { data: sourcePerformance, isLoading: loadingSourcePerformance } =
+    useQuery({
+      queryKey: ['dashboard-lead-source-performance'],
+      queryFn: () =>
+        apiRequest<LeadSourcePerformanceResponse>(
+          '/metrics/lead-source-performance',
+        ),
+      refetchInterval: 60000,
+    });
 
   if (isLoading || !data) {
     return (
@@ -64,7 +97,7 @@ export function DashboardPage() {
       <PageHeader
         eyebrow="Panel ejecutivo"
         title="Dashboard comercial y operativo"
-        description="Visibilidad de cartera, ventas, facturación y servicio técnico por unidad de negocio."
+        description="Visibilidad de cartera, ventas, facturacion, servicio tecnico y seguimiento comercial en refresco automatico."
       />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -94,7 +127,7 @@ export function DashboardPage() {
           accent="rgba(239,68,68,0.16)"
         />
         <MetricCard
-          label="Órdenes abiertas"
+          label="Ordenes abiertas"
           value={String(data.totals.openServiceOrders)}
           accent="rgba(99,102,241,0.16)"
         />
@@ -111,7 +144,7 @@ export function DashboardPage() {
                 Ventas por unidad de negocio
               </h3>
               <p className="text-sm text-muted">
-                Montos cerrados acumulados por línea comercial.
+                Montos cerrados acumulados por linea comercial.
               </p>
             </div>
           </div>
@@ -149,7 +182,7 @@ export function DashboardPage() {
             <div>
               <h3 className="text-lg font-semibold">Propuestas por estado</h3>
               <p className="text-sm text-muted">
-                Cómo se está comportando el embudo de propuestas.
+                Como se esta comportando el embudo de propuestas.
               </p>
             </div>
           </div>
@@ -189,7 +222,7 @@ export function DashboardPage() {
             <div>
               <h3 className="text-lg font-semibold">Oportunidades por etapa</h3>
               <p className="text-sm text-muted">
-                Distribución actual del pipeline.
+                Distribucion actual del pipeline.
               </p>
             </div>
           </div>
@@ -256,7 +289,7 @@ export function DashboardPage() {
             ) : (
               <EmptyState
                 title="Sin ranking disponible"
-                description="Todavía no hay ventas cerradas para consolidar el ranking."
+                description="Todavia no hay ventas cerradas para consolidar el ranking."
               />
             )}
           </div>
@@ -270,45 +303,52 @@ export function DashboardPage() {
               <ContactRound className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold">Actividad reciente</h3>
+              <h3 className="text-lg font-semibold">Feed comercial</h3>
               <p className="text-sm text-muted">
-                Eventos relevantes registrados por la auditoría.
+                Eventos recientes de auditoria y seguimiento comercial.
               </p>
             </div>
           </div>
-          <DataTable
-            data={data.recentActivity}
-            columns={[
-              {
-                key: 'action',
-                header: 'Acción',
-                render: (item) => (
-                  <span className="font-medium">{titleize(item.action)}</span>
-                ),
-              },
-              {
-                key: 'entity',
-                header: 'Entidad',
-                render: (item) => titleize(item.entity),
-              },
-              {
-                key: 'actorName',
-                header: 'Responsable',
-                render: (item) => item.actorName ?? 'Sistema',
-              },
-              {
-                key: 'createdAt',
-                header: 'Fecha',
-                render: (item) => formatDate(item.createdAt),
-              },
-            ]}
-            emptyState={
-              <EmptyState
-                title="Sin actividad reciente"
-                description="Aún no hay eventos de auditoría disponibles."
-              />
-            }
-          />
+          {loadingFeed ? (
+            <Skeleton className="h-[280px] w-full" />
+          ) : (
+            <DataTable
+              data={feedData?.data ?? []}
+              columns={[
+                {
+                  key: 'title',
+                  header: 'Evento',
+                  render: (item) => (
+                    <div>
+                      <p className="font-medium">{titleize(item.title)}</p>
+                      <p className="text-xs text-muted">{item.description}</p>
+                    </div>
+                  ),
+                },
+                {
+                  key: 'source',
+                  header: 'Fuente',
+                  render: (item) => <StatusBadge value={item.source} />,
+                },
+                {
+                  key: 'actorName',
+                  header: 'Responsable',
+                  render: (item) => item.actorName ?? 'Sistema',
+                },
+                {
+                  key: 'createdAt',
+                  header: 'Fecha',
+                  render: (item) => formatDate(item.createdAt),
+                },
+              ]}
+              emptyState={
+                <EmptyState
+                  title="Sin actividad reciente"
+                  description="Aun no hay eventos comerciales consolidados."
+                />
+              }
+            />
+          )}
         </Card>
 
         <Card className="p-5">
@@ -328,16 +368,128 @@ export function DashboardPage() {
           </p>
           <div className="mt-6 rounded-[28px] bg-surface-muted p-4">
             <p className="text-sm font-medium text-foreground">
-              Resumen rápido
+              Resumen rapido
             </p>
             <ul className="mt-4 space-y-3 text-sm text-muted">
               <li>Oportunidades abiertas: {data.totals.openOpportunities}</li>
               <li>Facturas pendientes: {data.totals.pendingInvoices}</li>
-              <li>Órdenes abiertas: {data.totals.openServiceOrders}</li>
+              <li>Ordenes abiertas: {data.totals.openServiceOrders}</li>
             </ul>
+          </div>
+          <div className="mt-6">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="rounded-2xl bg-primary-soft p-3 text-primary">
+                <ListTodo className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">Seguimientos abiertos</h3>
+                <p className="text-sm text-muted">
+                  Tareas y reuniones programadas del equipo comercial.
+                </p>
+              </div>
+            </div>
+            {loadingFollowUps ? (
+              <Skeleton className="h-[220px] w-full" />
+            ) : followUps.length ? (
+              <div className="space-y-3">
+                {followUps.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-3xl border border-border bg-surface-muted p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">
+                          {item.title}
+                        </p>
+                        <p className="text-xs text-muted">
+                          {formatDate(item.dueDate ?? item.date)}
+                        </p>
+                      </div>
+                      {item.isOverdue ? (
+                        <StatusBadge value="OVERDUE" label="Vencida" />
+                      ) : (
+                        <StatusBadge value="PLANNED" label="Programada" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="Sin seguimientos abiertos"
+                description="No hay tareas ni reuniones pendientes en este momento."
+              />
+            )}
           </div>
         </Card>
       </div>
+
+      <Card className="p-5">
+        <div className="mb-5 flex items-center gap-3">
+          <div className="rounded-2xl bg-primary-soft p-3 text-primary">
+            <BarChart3 className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold">Conversion por origen</h3>
+            <p className="text-sm text-muted">
+              Canales con mejor activacion, cierre y calidad comercial.
+            </p>
+          </div>
+        </div>
+        {loadingSourcePerformance ? (
+          <Skeleton className="h-[220px] w-full" />
+        ) : sourcePerformance?.bySource.length ? (
+          <DataTable
+            data={sourcePerformance.bySource.slice(0, 6)}
+            columns={[
+              {
+                key: 'source',
+                header: 'Origen',
+                render: (item) => <StatusBadge value={item.source} />,
+              },
+              {
+                key: 'leads',
+                header: 'Leads',
+                render: (item) => (
+                  <div>
+                    <p className="font-medium">{item.leads}</p>
+                    <p className="text-xs text-muted">
+                      {item.leadToOpportunityPct}% activados
+                    </p>
+                  </div>
+                ),
+              },
+              {
+                key: 'wonPct',
+                header: 'Cierre',
+                render: (item) => `${item.wonPct}%`,
+              },
+              {
+                key: 'avgLeadScore',
+                header: 'Score prom.',
+                render: (item) => item.avgLeadScore.toFixed(1),
+              },
+              {
+                key: 'closedRealValue',
+                header: 'Monto cerrado',
+                render: (item) => formatCurrency(item.closedRealValue),
+              },
+            ]}
+            emptyState={
+              <EmptyState
+                title="Sin datos por origen"
+                description="Todavia no hay suficientes leads para consolidar esta vista."
+              />
+            }
+          />
+        ) : (
+          <EmptyState
+            title="Sin datos por origen"
+            description="Todavia no hay suficientes leads para consolidar esta vista."
+          />
+        )}
+      </Card>
     </div>
   );
 }

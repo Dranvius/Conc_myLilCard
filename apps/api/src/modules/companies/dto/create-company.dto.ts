@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { CompanyStatus, CustomerType } from '@prisma/client';
-import { IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
 
 export class CreateCompanyDto {
   @ApiProperty()
@@ -59,4 +59,9 @@ export class CreateCompanyDto {
   @ApiProperty({ enum: CompanyStatus })
   @IsEnum(CompanyStatus)
   status!: CompanyStatus;
+
+  @ApiProperty({ required: false, default: false })
+  @IsOptional()
+  @IsBoolean()
+  allowPotentialDuplicate?: boolean;
 }

@@ -1,22 +1,27 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { z } from 'zod';
-import { EntityDialog, type DialogField } from '@/components/forms/entity-dialog';
+import { EntityDialog } from '@/components/forms/entity-dialog';
 import { Button } from '@/components/ui/button';
 import { apiRequest } from '@/lib/api-client';
-import { useCompanies, useContacts, useOpportunities } from '@/hooks/use-reference-data';
+import {
+  useCompanies,
+  useContacts,
+  useOpportunities,
+} from '@/hooks/use-reference-data';
 
 const schema = z.object({
   type: z.string().min(1, 'Selecciona el tipo'),
-  title: z.string().min(2, 'Ingresa un título'),
+  title: z.string().min(2, 'Ingresa un titulo'),
   companyId: z.string().optional(),
   contactId: z.string().optional(),
   opportunityId: z.string().optional(),
   date: z.string().min(1, 'Selecciona la fecha'),
   description: z.string().optional(),
+  status: z.enum(['PLANNED', 'COMPLETED']).default('COMPLETED'),
 });
 
 export function QuickActionActivity() {
@@ -48,43 +53,75 @@ export function QuickActionActivity() {
   });
 
   const fields = useMemo(
-    () => [
-      {
-        name: 'type',
-        label: 'Tipo de actividad',
-        type: 'select' as const,
-        options: [
-          { value: 'CALL', label: 'Llamada' },
-          { value: 'MEETING', label: 'Reunión' },
-          { value: 'EMAIL', label: 'Correo' },
-          { value: 'WHATSAPP', label: 'WhatsApp' },
-          { value: 'TASK', label: 'Tarea' },
-          { value: 'NOTE', label: 'Nota interna' },
-        ],
-      },
-      { name: 'title', label: 'Resumen o Título' },
-      {
-        name: 'companyId',
-        label: 'Empresa relacionada (Opcional)',
-        type: 'select' as const,
-        options: [{ value: '', label: 'Ninguna' }, ...companies.map((c) => ({ value: c.id, label: c.name }))],
-      },
-      {
-        name: 'contactId',
-        label: 'Contacto relacionado (Opcional)',
-        type: 'select' as const,
-        options: [{ value: '', label: 'Ninguno' }, ...contacts.map((c) => ({ value: c.id, label: `${c.firstName} ${c.lastName}` }))],
-      },
-      {
-        name: 'opportunityId',
-        label: 'Oportunidad relacionada (Opcional)',
-        type: 'select' as const,
-        options: [{ value: '', label: 'Ninguna' }, ...opportunities.map((o) => ({ value: o.id, label: o.title }))],
-      },
-      { name: 'date', label: 'Fecha y hora', type: 'datetime-local' as any },
-      { name: 'description', label: 'Detalles / Notas', type: 'textarea' as const },
-    ] as any[],
-    [companies, contacts, opportunities]
+    () =>
+      [
+        {
+          name: 'type',
+          label: 'Tipo de actividad',
+          type: 'select' as const,
+          options: [
+            { value: 'CALL', label: 'Llamada' },
+            { value: 'MEETING', label: 'Reunion' },
+            { value: 'EMAIL', label: 'Correo' },
+            { value: 'WHATSAPP', label: 'WhatsApp' },
+            { value: 'TASK', label: 'Tarea' },
+            { value: 'NOTE', label: 'Nota interna' },
+          ],
+        },
+        { name: 'title', label: 'Resumen o titulo' },
+        {
+          name: 'companyId',
+          label: 'Empresa relacionada (Opcional)',
+          type: 'select' as const,
+          options: [
+            { value: '', label: 'Ninguna' },
+            ...companies.map((company) => ({
+              value: company.id,
+              label: company.name,
+            })),
+          ],
+        },
+        {
+          name: 'contactId',
+          label: 'Contacto relacionado (Opcional)',
+          type: 'select' as const,
+          options: [
+            { value: '', label: 'Ninguno' },
+            ...contacts.map((contact) => ({
+              value: contact.id,
+              label: `${contact.firstName} ${contact.lastName}`,
+            })),
+          ],
+        },
+        {
+          name: 'opportunityId',
+          label: 'Oportunidad relacionada (Opcional)',
+          type: 'select' as const,
+          options: [
+            { value: '', label: 'Ninguna' },
+            ...opportunities.map((opportunity) => ({
+              value: opportunity.id,
+              label: opportunity.title,
+            })),
+          ],
+        },
+        {
+          name: 'status',
+          label: 'Estado',
+          type: 'select' as const,
+          options: [
+            { value: 'COMPLETED', label: 'Completada' },
+            { value: 'PLANNED', label: 'Programada' },
+          ],
+        },
+        { name: 'date', label: 'Fecha y hora', type: 'datetime-local' as any },
+        {
+          name: 'description',
+          label: 'Detalles / Notas',
+          type: 'textarea' as const,
+        },
+      ] as any[],
+    [companies, contacts, opportunities],
   );
 
   return (
@@ -92,18 +129,17 @@ export function QuickActionActivity() {
       <Button
         variant="primary"
         size="sm"
-        className="hidden md:flex gap-2 rounded-full shadow-md bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/90 hover:to-indigo-500 text-white border-0"
+        className="hidden gap-2 rounded-full border-0 bg-gradient-to-r from-primary to-indigo-600 text-white shadow-md hover:from-primary/90 hover:to-indigo-500 md:flex"
         onClick={() => setOpen(true)}
       >
         <Plus className="h-4 w-4" />
-        <span className="font-semibold tracking-wide">Registro rápido</span>
+        <span className="font-semibold tracking-wide">Registro rapido</span>
       </Button>
 
-      {/* Mobile Floating Button */}
       <Button
         variant="primary"
         size="lg"
-        className="md:hidden fixed bottom-6 right-6 flex items-center justify-center h-14 w-14 p-0 rounded-full shadow-xl bg-gradient-to-r from-primary to-indigo-600 border-0 z-50"
+        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full border-0 bg-gradient-to-r from-primary to-indigo-600 p-0 shadow-xl md:hidden"
         onClick={() => setOpen(true)}
       >
         <Plus className="h-6 w-6 text-white" />
@@ -112,8 +148,8 @@ export function QuickActionActivity() {
       <EntityDialog
         open={open}
         onClose={() => setOpen(false)}
-        title="Registro rápido"
-        description="Registra una llamada, nota o reunión en 15 segundos."
+        title="Registro rapido"
+        description="Registra una llamada, nota o reunion en pocos segundos."
         schema={schema}
         fields={fields}
         defaultValues={{
@@ -122,12 +158,15 @@ export function QuickActionActivity() {
           companyId: '',
           contactId: '',
           opportunityId: '',
+          status: 'COMPLETED',
           date: new Date().toISOString().slice(0, 16),
           description: '',
         }}
         submitLabel="Guardar actividad"
         loading={mutation.isPending}
-        onSubmit={async (values) => mutation.mutateAsync(values as z.infer<typeof schema>)}
+        onSubmit={async (values) =>
+          mutation.mutateAsync(values as z.infer<typeof schema>)
+        }
       />
     </>
   );

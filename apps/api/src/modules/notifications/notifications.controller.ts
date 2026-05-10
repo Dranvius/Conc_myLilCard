@@ -1,8 +1,16 @@
-import { Controller, Get, Patch, Delete, Param, Req, Res } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { NotificationsService } from './notifications.service.js';
-import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
-import type { AuthUser } from '../../common/interfaces/auth-user.interface.js';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthUser } from '../../common/interfaces/auth-user.interface';
+import { NotificationsService } from './notifications.service';
 
 @Controller('notifications')
 export class NotificationsController {
@@ -43,17 +51,19 @@ export class NotificationsController {
 
     const userId = req.user?.sub;
 
-    this.notificationsService.getUnreadCount(userId).then((count) => {
+    void this.notificationsService.getUnreadCount(userId).then((count) => {
       res.write(`data: ${JSON.stringify({ unread: count })}\n\n`);
     });
 
-    const interval = setInterval(async () => {
-      try {
-        const count = await this.notificationsService.getUnreadCount(userId);
-        res.write(`data: ${JSON.stringify({ unread: count })}\n\n`);
-      } catch {
-        // Ignorar
-      }
+    const interval = setInterval(() => {
+      void this.notificationsService
+        .getUnreadCount(userId)
+        .then((count) => {
+          res.write(`data: ${JSON.stringify({ unread: count })}\n\n`);
+        })
+        .catch(() => {
+          // Keep the stream alive even if one poll fails.
+        });
     }, 15000);
 
     req.on('close', () => {

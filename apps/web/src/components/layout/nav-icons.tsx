@@ -13,6 +13,7 @@ import {
   Users,
   BarChart3,
   Calendar,
+  ListTodo,
 } from 'lucide-react';
 
 export const navIcons = {
@@ -30,4 +31,5 @@ export const navIcons = {
   settings: Settings,
   'bar-chart': BarChart3,
   calendar: Calendar,
+  'list-todo': ListTodo,
 };

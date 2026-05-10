@@ -3,11 +3,13 @@ import { ActivityType } from '@prisma/client';
 import {
   IsDateString,
   IsEnum,
-  IsNumber,
+  IsIn,
   IsOptional,
   IsString,
-  Min,
 } from 'class-validator';
+
+export const activityEntryStatuses = ['PLANNED', 'COMPLETED'] as const;
+export type ActivityEntryStatus = (typeof activityEntryStatuses)[number];
 
 export class CreateActivityDto {
   @ApiProperty({ enum: ActivityType })
@@ -26,6 +28,11 @@ export class CreateActivityDto {
   @ApiProperty()
   @IsDateString()
   date!: string;
+
+  @ApiProperty({ required: false, enum: activityEntryStatuses })
+  @IsOptional()
+  @IsIn(activityEntryStatuses)
+  status?: ActivityEntryStatus;
 
   @ApiProperty({ required: false })
   @IsOptional()

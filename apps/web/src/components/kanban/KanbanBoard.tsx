@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -27,13 +27,27 @@ const stageConfig = [
   { id: 'LOST', label: 'PERDIDA' },
 ];
 
-export function KanbanBoard({ data, onUpdate }: { data: Opportunity[], onUpdate: () => void }) {
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(data);
+export function KanbanBoard({
+  data,
+  onUpdate,
+}: {
+  data: Opportunity[];
+  onUpdate: () => void;
+}) {
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [activeId, setActiveId] = useState<string | null>(null);
-
-  useEffect(() => {
-    setOpportunities(data);
-  }, [data]);
+  const opportunities = useMemo(
+    () =>
+      data.map((item) =>
+        overrides[item.id]
+          ? {
+              ...item,
+              stage: overrides[item.id],
+            }
+          : item,
+      ),
+    [data, overrides],
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -43,7 +57,7 @@ export function KanbanBoard({ data, onUpdate }: { data: Opportunity[], onUpdate:
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -57,7 +71,7 @@ export function KanbanBoard({ data, onUpdate }: { data: Opportunity[], onUpdate:
     if (!over) return;
     
     const opportunityId = active.id as string;
-    const activeStage = opportunities.find(o => o.id === opportunityId)?.stage;
+    const activeStage = opportunities.find((item) => item.id === opportunityId)?.stage;
     
     // Si soltó sobre otra tarjeta, obtener la etapa de esa tarjeta, si soltó sobre la columna, obtener el id de la columna
     let targetStage = over.id as string;
@@ -66,10 +80,10 @@ export function KanbanBoard({ data, onUpdate }: { data: Opportunity[], onUpdate:
     }
 
     if (activeStage && activeStage !== targetStage) {
-      // Optimistic update
-      setOpportunities(prev => 
-        prev.map(o => o.id === opportunityId ? { ...o, stage: targetStage } : o)
-      );
+      setOverrides((current) => ({
+        ...current,
+        [opportunityId]: targetStage,
+      }));
 
       try {
         await apiRequest(`/opportunities/${opportunityId}/stage`, {
@@ -77,15 +91,26 @@ export function KanbanBoard({ data, onUpdate }: { data: Opportunity[], onUpdate:
           body: JSON.stringify({ stage: targetStage }),
         });
         toast.success('Etapa actualizada');
+        setOverrides((current) => {
+          const next = { ...current };
+          delete next[opportunityId];
+          return next;
+        });
         onUpdate();
-      } catch (error) {
+      } catch {
         toast.error('Error al actualizar etapa');
-        setOpportunities(data); // Revert
+        setOverrides((current) => {
+          const next = { ...current };
+          delete next[opportunityId];
+          return next;
+        });
       }
     }
   };
 
-  const activeOpportunity = activeId ? opportunities.find(o => o.id === activeId) : null;
+  const activeOpportunity = activeId
+    ? opportunities.find((item) => item.id === activeId)
+    : null;
 
   return (
     <DndContext

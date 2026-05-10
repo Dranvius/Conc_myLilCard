@@ -1,4 +1,5 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { NotificationsService } from './notifications.service.js';
 
@@ -12,31 +13,36 @@ export class TasksService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    // Ejecutar la primera revisión a los 30 segundos de iniciar el servidor
-    setTimeout(() => this.runAutomatedChecks(), 30000);
+    setTimeout(() => {
+      void this.runAutomatedChecks();
+    }, 30000);
+    setInterval(() => {
+      void this.runAutomatedChecks();
+    }, 3600000);
+  }
 
-    // Luego, ejecutar cada 1 hora (3600000 ms)
-    setInterval(() => this.runAutomatedChecks(), 3600000);
+  private getDateKey(date: Date) {
+    return date.toISOString().slice(0, 10);
   }
 
   async runAutomatedChecks() {
-    this.logger.log('Iniciando revisión automática de vencimientos...');
-    
+    this.logger.log('Iniciando revision automatica de vencimientos...');
+
     try {
       await Promise.all([
         this.checkOverdueInvoices(),
         this.checkExpiringProposals(),
+        this.checkDueActivities(),
       ]);
-      this.logger.log('Revisión automática completada con éxito.');
+      this.logger.log('Revision automatica completada con exito.');
     } catch (error) {
-      this.logger.error('Error en la revisión automática:', error);
+      this.logger.error('Error en la revision automatica:', error);
     }
   }
 
   private async checkOverdueInvoices() {
     const today = new Date();
-    
-    // Buscar facturas vencidas que no hayan sido notificadas hoy
+    const dateKey = this.getDateKey(today);
     const overdueInvoices = await this.prisma.invoice.findMany({
       where: {
         dueDate: { lt: today },
@@ -44,53 +50,116 @@ export class TasksService implements OnModuleInit {
       },
       include: {
         sale: {
-          select: { ownerId: true }
+          select: { ownerId: true },
         },
         company: {
-          select: { name: true }
-        }
-      }
+          select: { name: true },
+        },
+      },
     });
 
     for (const invoice of overdueInvoices) {
-      // Evitar duplicar notificaciones (podríamos marcar la factura o revisar logs)
-      // Por ahora, enviamos la notificación al dueño de la venta
       await this.notifications.create({
         userId: invoice.sale.ownerId,
-        title: '🔴 Factura Vencida',
-        message: `La factura ${invoice.invoiceNumber} de ${invoice.company.name} ha vencido. Total: $${invoice.total}.`,
+        title: 'Factura vencida',
+        message: `La factura ${invoice.invoiceNumber} de ${invoice.company.name} ha vencido. Total: $${Number(invoice.total)}.`,
+        type: NotificationType.INVOICE_OVERDUE,
+        referenceType: 'Invoice',
+        referenceId: invoice.id,
+        dedupeKey: `invoice-overdue:${invoice.id}:${dateKey}`,
       });
     }
   }
 
   private async checkExpiringProposals() {
-    const tomorrow = new Date();
+    const now = new Date();
+    const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    // Buscar propuestas que vencen mañana y están en estado SENT (Enviadas)
+    const dateKey = this.getDateKey(tomorrow);
     const expiringProposals = await this.prisma.proposal.findMany({
       where: {
         validUntil: {
-          gte: new Date(),
+          gte: now,
           lte: tomorrow,
         },
         status: 'SENT',
       },
       include: {
         opportunity: {
-          select: { 
+          select: {
             ownerId: true,
-            company: { select: { name: true } }
-          }
-        }
-      }
+            company: { select: { name: true } },
+          },
+        },
+      },
     });
 
     for (const proposal of expiringProposals) {
       await this.notifications.create({
         userId: proposal.opportunity.ownerId,
-        title: '⏳ Propuesta por Vencer',
-        message: `La propuesta ${proposal.code} para ${proposal.opportunity.company.name} vence mañana. ¡Hazle seguimiento!`,
+        title: 'Propuesta por vencer',
+        message: `La propuesta ${proposal.code} para ${proposal.opportunity.company.name} vence manana. Hazle seguimiento.`,
+        type: NotificationType.PROPOSAL_EXPIRING,
+        referenceType: 'Proposal',
+        referenceId: proposal.id,
+        dedupeKey: `proposal-expiring:${proposal.id}:${dateKey}`,
+      });
+    }
+  }
+
+  private async checkDueActivities() {
+    const now = new Date();
+    const endOfTomorrow = new Date(now);
+    endOfTomorrow.setDate(endOfTomorrow.getDate() + 1);
+    endOfTomorrow.setHours(23, 59, 59, 999);
+
+    const activities = await this.prisma.activity.findMany({
+      where: {
+        completedAt: null,
+        dueDate: {
+          lte: endOfTomorrow,
+        },
+      },
+      include: {
+        company: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        opportunity: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+      },
+    });
+
+    for (const activity of activities) {
+      if (!activity.dueDate) {
+        continue;
+      }
+
+      const isOverdue = activity.dueDate.getTime() < now.getTime();
+      const dueKey = this.getDateKey(activity.dueDate);
+      const title = isOverdue ? 'Seguimiento vencido' : 'Seguimiento pendiente';
+      const type = isOverdue
+        ? NotificationType.ACTIVITY_OVERDUE
+        : NotificationType.ACTIVITY_DUE;
+      const relatedLabel =
+        activity.opportunity?.title ??
+        activity.company?.name ??
+        activity.subject;
+
+      await this.notifications.create({
+        userId: activity.userId,
+        title,
+        message: `${activity.subject} requiere atencion para ${relatedLabel}.`,
+        type,
+        referenceType: 'Activity',
+        referenceId: activity.id,
+        dedupeKey: `${isOverdue ? 'activity-overdue' : 'activity-due'}:${activity.id}:${dueKey}`,
       });
     }
   }

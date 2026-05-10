@@ -105,9 +105,7 @@ export class ProposalsService {
       },
     });
 
-    const productMap = new Map(
-      products.map((product) => [product.id, product]),
-    );
+    const productMap = new Map(products.map((product) => [product.id, product]));
 
     return items.map((item) => {
       const product = productMap.get(item.productId);
@@ -181,17 +179,19 @@ export class ProposalsService {
   }
 
   async update(id: string, updateProposalDto: UpdateProposalDto) {
-    const currentProposal = await this.prisma.proposal.findUniqueOrThrow({ where: { id } });
-    
+    const currentProposal = await this.prisma.proposal.findUniqueOrThrow({
+      where: { id },
+    });
+
     const items = updateProposalDto.items
       ? await this.buildItems(updateProposalDto.items)
       : null;
-      
+
     const subtotal = items
       ? items.reduce((sum, item) => sum + item.total, 0)
       : Number(currentProposal.subtotal);
-      
-    const taxRate = updateProposalDto.taxRate ?? Number(currentProposal.taxRate);
+    const taxRate =
+      updateProposalDto.taxRate ?? Number(currentProposal.taxRate);
     const taxAmount = subtotal * (taxRate / 100);
     const totalAmount = subtotal + taxAmount;
 
@@ -245,7 +245,10 @@ export class ProposalsService {
     });
   }
 
-  async updateStatus(id: string, updateProposalStatusDto: UpdateProposalStatusDto) {
+  async updateStatus(
+    id: string,
+    updateProposalStatusDto: UpdateProposalStatusDto,
+  ) {
     const proposal = await this.prisma.proposal.update({
       where: { id },
       data: {
@@ -266,11 +269,10 @@ export class ProposalsService {
       },
     });
 
-    // Crear notificación si la propuesta fue aceptada
     if (updateProposalStatusDto.status === 'ACCEPTED') {
       await this.notifications.create({
         userId: proposal.opportunity.ownerId,
-        title: '¡Propuesta aceptada!',
+        title: 'Propuesta aceptada',
         message: `La propuesta comercial ${proposal.code} dirigida a ${proposal.opportunity.company.name} ha sido aprobada.`,
       });
     }

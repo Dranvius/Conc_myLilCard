@@ -152,7 +152,7 @@ export function GlobalSearch() {
 
               {!results.companies.length && !results.opportunities.length && !results.contacts.length && !results.products.length && (
                 <div className="p-8 text-center text-muted-foreground">
-                  No se encontraron resultados para "{query}"
+                  No se encontraron resultados para &quot;{query}&quot;
                 </div>
               )}
             </div>

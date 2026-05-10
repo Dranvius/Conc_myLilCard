@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, StreamableFile } from '@nestjs/common';
+import * as ExcelJS from 'exceljs';
+import { Buffer } from 'buffer';
 import { SaleStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
@@ -23,6 +25,26 @@ export class SalesService {
       status: query.status || undefined,
       ownerId: query.ownerId || undefined,
       companyId: query.companyId || undefined,
+      OR: query.search
+        ? [
+            {
+              company: {
+                name: {
+                  contains: query.search,
+                  mode: 'insensitive' as const,
+                },
+              },
+            },
+            {
+              opportunity: {
+                title: {
+                  contains: query.search,
+                  mode: 'insensitive' as const,
+                },
+              },
+            },
+          ]
+        : undefined,
     };
 
     const [data, total] = await this.prisma.$transaction([
@@ -56,6 +78,93 @@ export class SalesService {
       data,
       meta: buildPaginationMeta(page, limit, total),
     };
+  }
+
+  async exportToExcel(query: SaleQueryDto) {
+    const where = {
+      status: query.status || undefined,
+      ownerId: query.ownerId || undefined,
+      companyId: query.companyId || undefined,
+      OR: query.search
+        ? [
+            {
+              company: {
+                name: {
+                  contains: query.search,
+                  mode: 'insensitive' as const,
+                },
+              },
+            },
+            {
+              opportunity: {
+                title: {
+                  contains: query.search,
+                  mode: 'insensitive' as const,
+                },
+              },
+            },
+          ]
+        : undefined,
+    };
+
+    const sales = await this.prisma.sale.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        company: true,
+        owner: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        opportunity: {
+          include: {
+            businessUnit: true,
+          },
+        },
+        proposal: true,
+      },
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Ventas');
+
+    worksheet.columns = [
+      { header: 'Empresa', key: 'company', width: 28 },
+      { header: 'Oportunidad', key: 'opportunity', width: 32 },
+      { header: 'Responsable', key: 'owner', width: 24 },
+      { header: 'Unidad de negocio', key: 'businessUnit', width: 24 },
+      { header: 'Estado', key: 'status', width: 16 },
+      { header: 'Monto total', key: 'totalAmount', width: 18 },
+      { header: 'Propuesta', key: 'proposal', width: 20 },
+      { header: 'Cierre', key: 'closedAt', width: 22 },
+      { header: 'Creada', key: 'createdAt', width: 22 },
+    ];
+
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF0F6C8D' },
+    };
+
+    sales.forEach((sale) => {
+      worksheet.addRow({
+        company: sale.company.name,
+        opportunity: sale.opportunity.title,
+        owner: sale.owner?.name ?? 'Sin responsable',
+        businessUnit: sale.opportunity.businessUnit.name,
+        status: sale.status,
+        totalAmount: Number(sale.totalAmount),
+        proposal: sale.proposal?.code ?? 'N/A',
+        closedAt: sale.closedAt?.toISOString() ?? 'N/A',
+        createdAt: sale.createdAt.toISOString(),
+      });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return new StreamableFile(Buffer.from(buffer));
   }
 
   findOne(id: string) {

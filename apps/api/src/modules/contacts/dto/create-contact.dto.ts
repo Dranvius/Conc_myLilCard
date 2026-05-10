@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsOptional, IsString } from 'class-validator';
+import { LeadSource } from '@prisma/client';
+import { IsBoolean, IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
 
 export class CreateContactDto {
   @ApiProperty()
@@ -33,4 +34,14 @@ export class CreateContactDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiProperty({ required: false, enum: LeadSource })
+  @IsOptional()
+  @IsEnum(LeadSource)
+  source?: LeadSource;
+
+  @ApiProperty({ required: false, default: false })
+  @IsOptional()
+  @IsBoolean()
+  allowPotentialDuplicate?: boolean;
 }

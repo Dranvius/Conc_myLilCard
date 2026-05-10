@@ -117,6 +117,9 @@ docker compose up -d postgres
 ## Ejecutar migraciones
 
 La migración inicial ya está incluida en `prisma/migrations`.
+La base comercial incremental para scoring, round robin, captura pública y notificaciones comerciales quedó versionada en:
+
+- `prisma/migrations/20260509103000_commercial_acceleration_foundation`
 
 Para desarrollo:
 
@@ -244,6 +247,14 @@ La estructura quedó preparada para incorporar:
 - facturación electrónica
 - inventario avanzado
 - estrategias multiempresa
+
+## Notas técnicas recientes
+
+- Se habilitó captura pública de leads en `/lead` y en la API `POST /api/public/leads`, con CAPTCHA y asignación automática.
+- El pipeline ahora contempla origen del lead, scoring explicable `P0-P4`, alertas de estancamiento y seguimiento basado en `dueDate` / `completedAt`.
+- Se extendieron exportaciones Excel para contactos, oportunidades y ventas, además del patrón ya existente para empresas.
+- Las secuencias de email, firma electrónica, IA comercial, gamificación y CTI siguen pendientes porque requieren proveedor externo o definiciones de negocio adicionales.
+- Si vas a levantar estos cambios en otra base, ejecuta primero `npm run prisma:generate` y luego `npm run prisma:migrate` o `npm run prisma:deploy` según el entorno.
 
 ## Estado de la entrega
 

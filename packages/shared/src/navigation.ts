@@ -11,12 +11,12 @@ export interface NavItemDefinition {
     | 'badge-dollar-sign'
     | 'stethoscope'
     | 'receipt'
-    | 'receipt'
     | 'star'
     | 'shield'
     | 'settings'
     | 'bar-chart'
-    | 'calendar';
+    | 'calendar'
+    | 'list-todo';
   adminOnly?: boolean;
 }
 
@@ -26,12 +26,13 @@ export const appNavigation: NavItemDefinition[] = [
   { label: 'Contactos', href: '/contacts', iconKey: 'users' },
   { label: 'Productos', href: '/products', iconKey: 'package' },
   { label: 'Oportunidades', href: '/opportunities', iconKey: 'funnel' },
+  { label: 'Seguimiento', href: '/follow-ups', iconKey: 'list-todo' },
   { label: 'Propuestas', href: '/proposals', iconKey: 'file-text' },
   { label: 'Ventas', href: '/sales', iconKey: 'badge-dollar-sign' },
-  { label: 'Órdenes', href: '/service-orders', iconKey: 'stethoscope' },
+  { label: 'Ordenes', href: '/service-orders', iconKey: 'stethoscope' },
   { label: 'Facturas', href: '/invoices', iconKey: 'receipt' },
   { label: 'Calendario', href: '/calendar', iconKey: 'calendar' },
-  { label: 'Reseñas', href: '/reviews', iconKey: 'star' },
+  { label: 'Resenas', href: '/reviews', iconKey: 'star' },
   { label: 'Admin', href: '/admin', iconKey: 'shield', adminOnly: true },
   { label: 'Reportes', href: '/reports', iconKey: 'bar-chart' },
   { label: 'Ajustes', href: '/settings', iconKey: 'settings' },

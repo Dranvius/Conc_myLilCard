@@ -3,66 +3,76 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, SquarePen, LayoutList, Columns } from 'lucide-react';
-import { KanbanBoard } from '@/components/kanban/KanbanBoard';
+import { Columns, Download, LayoutList, Plus, SquarePen } from 'lucide-react';
 import { z } from 'zod';
 import { EntityDialog } from '@/components/forms/entity-dialog';
+import { PotentialDuplicateModal } from '@/components/forms/potential-duplicate-modal';
+import { KanbanBoard } from '@/components/kanban/KanbanBoard';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
+import { StatusBadge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { DataTable } from '@/components/ui/table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { StatusBadge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DataTable } from '@/components/ui/table';
 import { useApiList } from '@/hooks/use-api-list';
 import {
   useBusinessUnits,
   useCompanies,
   useUsers,
 } from '@/hooks/use-reference-data';
-import { apiRequest } from '@/lib/api-client';
-import { formatCurrency } from '@/lib/format';
-import type { Opportunity, Paged } from '@/lib/types';
+import { downloadApiFile, apiRequest } from '@/lib/api-client';
+import {
+  formatLeadScore,
+  formatLeadSource,
+  leadSourceOptions,
+  opportunityStages,
+} from '@/lib/crm';
+import {
+  getPotentialDuplicates,
+  isPotentialDuplicateError,
+} from '@/lib/duplicates';
+import { formatCurrency, formatDate } from '@/lib/format';
+import type { Opportunity, Paged, PotentialDuplicate } from '@/lib/types';
 import { cleanPayload } from '@/lib/utils';
-
-const stages = [
-  'NEW',
-  'CONTACTED',
-  'QUALIFIED',
-  'PROPOSAL_SENT',
-  'NEGOTIATION',
-  'WON',
-  'LOST',
-];
 
 const schema = z.object({
   companyId: z.string().min(1, 'Selecciona una empresa'),
-  ownerId: z.string().min(1, 'Selecciona un responsable'),
+  ownerId: z.string().optional(),
   businessUnitId: z.string().min(1, 'Selecciona la unidad'),
-  title: z.string().min(2, 'Ingresa un título'),
+  title: z.string().min(2, 'Ingresa un titulo'),
   stage: z.string().min(1, 'Selecciona la etapa'),
   estimatedValue: z.coerce.number().min(0),
   probability: z.coerce.number().min(0).max(100),
   expectedCloseDate: z.string().optional(),
   notes: z.string().optional(),
+  source: z.string().optional(),
 });
 
 export default function OpportunitiesPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [stage, setStage] = useState('');
+  const [source, setSource] = useState('');
   const [businessUnitId, setBusinessUnitId] = useState('');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Opportunity | null>(null);
   const [view, setView] = useState<'table' | 'board'>('board');
+  const [duplicateCandidates, setDuplicateCandidates] = useState<
+    PotentialDuplicate[]
+  >([]);
+  const [pendingValues, setPendingValues] = useState<
+    z.infer<typeof schema> | null
+  >(null);
   const { data, isLoading } = useApiList<Paged<Opportunity>>(
-    ['opportunities', search, stage, businessUnitId],
+    ['opportunities', search, stage, source, businessUnitId],
     '/opportunities',
     {
       search,
       stage,
+      source,
       businessUnitId,
       limit: 100,
     },
@@ -80,6 +90,7 @@ export default function OpportunitiesPage() {
           body: JSON.stringify(payload),
         });
       }
+
       return apiRequest('/opportunities', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -89,6 +100,14 @@ export default function OpportunitiesPage() {
       await queryClient.invalidateQueries({ queryKey: ['opportunities'] });
       setOpen(false);
       setEditing(null);
+      setPendingValues(null);
+      setDuplicateCandidates([]);
+    },
+    onError: (error, values) => {
+      if (isPotentialDuplicateError(error)) {
+        setPendingValues(values);
+        setDuplicateCandidates(getPotentialDuplicates(error));
+      }
     },
   });
 
@@ -118,12 +137,24 @@ export default function OpportunitiesPage() {
           label: unit.name,
         })),
       },
-      { name: 'title', label: 'Título' },
+      {
+        name: 'source',
+        label: 'Origen del lead',
+        type: 'select' as const,
+        options: leadSourceOptions.map((item) => ({
+          value: item,
+          label: formatLeadSource(item),
+        })),
+      },
+      { name: 'title', label: 'Titulo' },
       {
         name: 'stage',
         label: 'Etapa',
         type: 'select' as const,
-        options: stages.map((item) => ({ value: item, label: item })),
+        options: opportunityStages.map((item) => ({
+          value: item,
+          label: item,
+        })),
       },
       {
         name: 'estimatedValue',
@@ -145,15 +176,27 @@ export default function OpportunitiesPage() {
     [businessUnits, companies, users],
   );
 
+  const handleExport = async () => {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (stage) params.set('stage', stage);
+    if (source) params.set('source', source);
+    if (businessUnitId) params.set('businessUnitId', businessUnitId);
+    await downloadApiFile(
+      `/opportunities/export/excel?${params.toString()}`,
+      'oportunidades.xlsx',
+    );
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Pipeline"
         title="Oportunidades"
-        description="Gestiona las etapas comerciales desde el primer contacto hasta el cierre."
+        description="Gestiona el pipeline comercial con score, origen, alertas de estancamiento y seguimiento visible."
         action={
           <div className="flex items-center gap-2">
-            <div className="flex bg-muted p-1 rounded-md">
+            <div className="flex rounded-md bg-muted p-1">
               <Button
                 variant={view === 'board' ? 'secondary' : 'ghost'}
                 size="sm"
@@ -171,22 +214,26 @@ export default function OpportunitiesPage() {
                 <LayoutList className="h-4 w-4" />
               </Button>
             </div>
+            <Button variant="secondary" onClick={handleExport}>
+              <Download className="mr-2 h-4 w-4" />
+              Excel
+            </Button>
             <Button
               onClick={() => {
                 setEditing(null);
                 setOpen(true);
               }}
             >
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="mr-2 h-4 w-4" />
               Crear oportunidad
             </Button>
           </div>
         }
       />
 
-      <Card className="grid gap-3 p-4 md:grid-cols-4">
+      <Card className="grid gap-3 p-4 md:grid-cols-5">
         <Input
-          placeholder="Buscar por título o empresa"
+          placeholder="Buscar por titulo, empresa o contacto"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
@@ -206,9 +253,20 @@ export default function OpportunitiesPage() {
           onChange={(event) => setStage(event.target.value)}
         >
           <option value="">Todas las etapas</option>
-          {stages.map((item) => (
+          {opportunityStages.map((item) => (
             <option key={item} value={item}>
               {item}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={source}
+          onChange={(event) => setSource(event.target.value)}
+        >
+          <option value="">Todos los origenes</option>
+          {leadSourceOptions.map((item) => (
+            <option key={item} value={item}>
+              {formatLeadSource(item)}
             </option>
           ))}
         </Select>
@@ -218,6 +276,7 @@ export default function OpportunitiesPage() {
             setSearch('');
             setBusinessUnitId('');
             setStage('');
+            setSource('');
           }}
         >
           Limpiar filtros
@@ -227,9 +286,11 @@ export default function OpportunitiesPage() {
       {isLoading ? (
         <Skeleton className="h-[340px] w-full" />
       ) : view === 'board' ? (
-        <KanbanBoard 
-          data={data?.data ?? []} 
-          onUpdate={() => queryClient.invalidateQueries({ queryKey: ['opportunities'] })} 
+        <KanbanBoard
+          data={data?.data ?? []}
+          onUpdate={() =>
+            queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+          }
         />
       ) : (
         <DataTable
@@ -251,9 +312,45 @@ export default function OpportunitiesPage() {
               ),
             },
             {
+              key: 'score',
+              header: 'Prioridad',
+              render: (item) => (
+                <div className="space-y-2">
+                  {item.leadScore ? (
+                    <StatusBadge
+                      value={item.leadScore}
+                      label={formatLeadScore(item.leadScore)}
+                    />
+                  ) : (
+                    <span className="text-xs text-muted">Sin score</span>
+                  )}
+                  {item.isStale ? (
+                    <StatusBadge
+                      value={
+                        item.staleSeverity === 'critical'
+                          ? 'STALE_CRITICAL'
+                          : 'STALE_WARNING'
+                      }
+                      label={`${item.daysWithoutMovement ?? 0} dias sin mover`}
+                    />
+                  ) : null}
+                </div>
+              ),
+            },
+            {
               key: 'stage',
               header: 'Etapa',
-              render: (item) => <StatusBadge value={item.stage} />,
+              render: (item) => (
+                <div className="space-y-2">
+                  <StatusBadge value={item.stage} />
+                  {item.source ? (
+                    <StatusBadge
+                      value={item.source}
+                      label={formatLeadSource(item.source)}
+                    />
+                  ) : null}
+                </div>
+              ),
             },
             {
               key: 'value',
@@ -271,12 +368,14 @@ export default function OpportunitiesPage() {
             },
             {
               key: 'owner',
-              header: 'Responsable',
+              header: 'Seguimiento',
               render: (item) => (
                 <div>
                   <p>{item.owner?.name || 'Sin responsable'}</p>
                   <p className="text-xs text-muted">
-                    {item.businessUnit?.name}
+                    {item.nextActivityAt
+                      ? `Proxima: ${formatDate(item.nextActivityAt)}`
+                      : 'Sin proxima actividad'}
                   </p>
                 </div>
               ),
@@ -314,12 +413,12 @@ export default function OpportunitiesPage() {
           setEditing(null);
         }}
         title={editing ? 'Editar oportunidad' : 'Nueva oportunidad'}
-        description="Cada oportunidad queda asociada a empresa, unidad y responsable."
+        description="Si dejas el responsable vacio, RespiraCRM asignara la oportunidad automaticamente."
         schema={schema}
         fields={fields}
         defaultValues={{
           companyId: editing?.companyId ?? '',
-          ownerId: editing?.ownerId ?? users[0]?.id ?? '',
+          ownerId: editing?.ownerId ?? '',
           businessUnitId: editing?.businessUnitId ?? businessUnitId ?? '',
           title: editing?.title ?? '',
           stage: editing?.stage ?? 'NEW',
@@ -329,10 +428,32 @@ export default function OpportunitiesPage() {
             ? editing.expectedCloseDate.slice(0, 10)
             : '',
           notes: editing?.notes ?? '',
+          source: editing?.source ?? '',
         }}
         submitLabel={editing ? 'Guardar cambios' : 'Crear oportunidad'}
         loading={mutation.isPending}
         onSubmit={async (values) => mutation.mutateAsync(values)}
+      />
+
+      <PotentialDuplicateModal
+        open={duplicateCandidates.length > 0}
+        duplicates={duplicateCandidates}
+        title="Posibles oportunidades duplicadas"
+        loading={mutation.isPending}
+        onClose={() => {
+          setDuplicateCandidates([]);
+          setPendingValues(null);
+        }}
+        onContinue={async () => {
+          if (!pendingValues) {
+            return;
+          }
+
+          await mutation.mutateAsync({
+            ...pendingValues,
+            allowPotentialDuplicate: true,
+          } as z.infer<typeof schema>);
+        }}
       />
     </div>
   );

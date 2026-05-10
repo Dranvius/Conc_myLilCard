@@ -123,7 +123,7 @@ export default function CalendarPage() {
               events={events}
               date={date}
               view={view}
-              // @ts-ignore - View type mismatches slightly in strict mode
+              // @ts-expect-error - View type mismatches slightly in strict mode
               onView={(newView) => setView(newView)}
               onNavigate={(newDate) => setDate(newDate)}
               culture="es"

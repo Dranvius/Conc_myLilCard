@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Ip,
   Param,
   Patch,
@@ -28,6 +29,18 @@ export class SalesController {
   @ApiOperation({ summary: 'Listar ventas' })
   findMany(@Query() query: SaleQueryDto) {
     return this.salesService.findMany(query);
+  }
+
+  @Get('export/excel')
+  @Permissions('sales.read')
+  @ApiOperation({ summary: 'Exportar listado de ventas a Excel' })
+  @Header(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  @Header('Content-Disposition', 'attachment; filename="ventas.xlsx"')
+  exportToExcel(@Query() query: SaleQueryDto) {
+    return this.salesService.exportToExcel(query);
   }
 
   @Get(':id')

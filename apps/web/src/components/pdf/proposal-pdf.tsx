@@ -1,4 +1,4 @@
-import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
+import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
 import type { Proposal } from '@/lib/types';
 import { formatCurrency, formatDate } from '@/lib/format';
 

@@ -2,23 +2,25 @@
 
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Download, Plus } from 'lucide-react';
 import { z } from 'zod';
 import { EntityDialog } from '@/components/forms/entity-dialog';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
+import { StatusBadge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { DataTable } from '@/components/ui/table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { StatusBadge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DataTable } from '@/components/ui/table';
 import { useApiList } from '@/hooks/use-api-list';
 import { useOpportunities, useUsers } from '@/hooks/use-reference-data';
-import { apiRequest } from '@/lib/api-client';
+import { apiRequest, downloadApiFile } from '@/lib/api-client';
 import { formatCurrency, formatDate } from '@/lib/format';
 import type { Paged, Sale } from '@/lib/types';
+
+const saleStatuses = ['PENDING', 'CONFIRMED', 'CLOSED', 'CANCELLED'];
 
 const saleSchema = z.object({
   opportunityId: z.string().min(1, 'Selecciona una oportunidad'),
@@ -37,6 +39,7 @@ export default function SalesPage() {
     ['sales', search, status],
     '/sales',
     {
+      search,
       status,
       limit: 100,
     },
@@ -77,14 +80,22 @@ export default function SalesPage() {
         name: 'status',
         label: 'Estado',
         type: 'select' as const,
-        options: ['PENDING', 'CONFIRMED', 'CLOSED', 'CANCELLED'].map(
-          (item) => ({ value: item, label: item }),
-        ),
+        options: saleStatuses.map((item) => ({ value: item, label: item })),
       },
       { name: 'totalAmount', label: 'Monto total', type: 'number' as const },
     ],
     [opportunities, users],
   );
+
+  const handleExport = async () => {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (status) params.set('status', status);
+    await downloadApiFile(
+      `/sales/export/excel?${params.toString()}`,
+      'ventas.xlsx',
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -93,16 +104,22 @@ export default function SalesPage() {
         title="Ventas"
         description="Registra cierres comerciales desde oportunidades o propuestas aceptadas."
         action={
-          <Button onClick={() => setOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Registrar venta
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={handleExport}>
+              <Download className="mr-2 h-4 w-4" />
+              Excel
+            </Button>
+            <Button onClick={() => setOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Registrar venta
+            </Button>
+          </div>
         }
       />
 
       <Card className="grid gap-3 p-4 md:grid-cols-3">
         <Input
-          placeholder="Filtra desde las vistas relacionadas"
+          placeholder="Buscar por empresa u oportunidad"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
@@ -111,13 +128,19 @@ export default function SalesPage() {
           onChange={(event) => setStatus(event.target.value)}
         >
           <option value="">Todos los estados</option>
-          {['PENDING', 'CONFIRMED', 'CLOSED', 'CANCELLED'].map((item) => (
+          {saleStatuses.map((item) => (
             <option key={item} value={item}>
               {item}
             </option>
           ))}
         </Select>
-        <Button variant="secondary" onClick={() => setStatus('')}>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setSearch('');
+            setStatus('');
+          }}
+        >
           Limpiar
         </Button>
       </Card>
@@ -135,7 +158,7 @@ export default function SalesPage() {
                 <div>
                   <p className="font-semibold">{item.company?.name}</p>
                   <p className="text-xs text-muted">
-                    {item.opportunity?.businessUnit?.name}
+                    {item.opportunity?.title}
                   </p>
                 </div>
               ),
@@ -143,7 +166,14 @@ export default function SalesPage() {
             {
               key: 'owner',
               header: 'Vendedor',
-              render: (item) => item.owner?.name || 'No asignado',
+              render: (item) => (
+                <div>
+                  <p>{item.owner?.name || 'No asignado'}</p>
+                  <p className="text-xs text-muted">
+                    {item.opportunity?.businessUnit?.name || 'Sin unidad'}
+                  </p>
+                </div>
+              ),
             },
             {
               key: 'total',
@@ -162,7 +192,7 @@ export default function SalesPage() {
             },
             {
               key: 'quick-status',
-              header: 'Acción',
+              header: 'Accion',
               render: (item) => (
                 <Button
                   variant="ghost"
@@ -187,7 +217,7 @@ export default function SalesPage() {
           emptyState={
             <EmptyState
               title="Sin ventas"
-              description="Cierra una oportunidad para verla reflejada aquí."
+              description="Cierra una oportunidad para verla reflejada aqui."
             />
           }
         />

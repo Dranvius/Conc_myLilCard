@@ -1,24 +1,23 @@
+'use client';
+
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Phone, Calendar, Mail, MessageCircle, CheckSquare, Plus } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  Calendar,
+  CheckSquare,
+  Mail,
+  MessageCircle,
+  Phone,
+  Plus,
+} from 'lucide-react';
 import { z } from 'zod';
-import { Card } from '@/components/ui/card';
+import { EntityDialog } from '@/components/forms/entity-dialog';
 import { Button } from '@/components/ui/button';
+import { StatusBadge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { apiRequest } from '@/lib/api-client';
 import { formatDate } from '@/lib/format';
-import { EntityDialog } from '@/components/forms/entity-dialog';
-
-export interface Activity {
-  id: string;
-  type: string;
-  title: string;
-  description?: string;
-  date: string;
-  companyId?: string;
-  opportunityId?: string;
-  contactId?: string;
-  createdBy?: { id: string; name: string };
-}
+import type { ActivityItem } from '@/lib/types';
 
 const activityIcons = {
   CALL: Phone,
@@ -38,7 +37,7 @@ const activityColors = {
 
 const activityLabels = {
   CALL: 'Llamada',
-  MEETING: 'Reunión',
+  MEETING: 'Reunion',
   EMAIL: 'Correo',
   WHATSAPP: 'WhatsApp',
   TASK: 'Tarea',
@@ -46,15 +45,24 @@ const activityLabels = {
 
 const schema = z.object({
   type: z.string().min(1, 'Selecciona el tipo'),
-  title: z.string().min(2, 'Ingresa un título'),
+  title: z.string().min(2, 'Ingresa un titulo'),
   description: z.string().optional(),
   date: z.string().min(1, 'Selecciona la fecha'),
+  status: z.enum(['PLANNED', 'COMPLETED']).default('COMPLETED'),
 });
 
-export function ActivityTimeline({ opportunityId, companyId, contactId }: { opportunityId?: string; companyId?: string; contactId?: string }) {
+export function ActivityTimeline({
+  opportunityId,
+  companyId,
+  contactId,
+}: {
+  opportunityId?: string;
+  companyId?: string;
+  contactId?: string;
+}) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  
+
   const queryParams = new URLSearchParams();
   if (opportunityId) queryParams.append('opportunityId', opportunityId);
   if (companyId) queryParams.append('companyId', companyId);
@@ -62,7 +70,8 @@ export function ActivityTimeline({ opportunityId, companyId, contactId }: { oppo
 
   const { data: activities = [] } = useQuery({
     queryKey: ['activities', opportunityId, companyId, contactId],
-    queryFn: () => apiRequest<Activity[]>(`/activities?${queryParams.toString()}`),
+    queryFn: () =>
+      apiRequest<ActivityItem[]>(`/activities?${queryParams.toString()}`),
   });
 
   const mutation = useMutation({
@@ -85,41 +94,107 @@ export function ActivityTimeline({ opportunityId, companyId, contactId }: { oppo
     },
   });
 
+  const completeMutation = useMutation({
+    mutationFn: (activityId: string) =>
+      apiRequest(`/activities/${activityId}/complete`, {
+        method: 'PATCH',
+        body: JSON.stringify({}),
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['activities'] });
+    },
+  });
+
   return (
     <Card className="p-6">
-      <div className="flex items-center justify-between mb-8">
+      <div className="mb-8 flex items-center justify-between">
         <h3 className="text-lg font-semibold">Historial de seguimiento</h3>
         <Button size="sm" onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
+          <Plus className="mr-2 h-4 w-4" />
           Registrar actividad
         </Button>
       </div>
 
-      <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
+      <div className="relative space-y-6 before:absolute before:inset-0 before:ml-5 before:h-full before:w-0.5 before:-translate-x-px before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent md:before:mx-auto md:before:translate-x-0">
         {activities.length === 0 && (
-          <p className="text-center text-sm text-muted">Aún no hay actividades registradas.</p>
+          <p className="text-center text-sm text-muted">
+            Aun no hay actividades registradas.
+          </p>
         )}
         {activities.map((activity) => {
-          const Icon = activityIcons[activity.type as keyof typeof activityIcons] || CheckSquare;
-          const colors = activityColors[activity.type as keyof typeof activityColors] || activityColors.TASK;
-          
+          const Icon =
+            activityIcons[activity.type as keyof typeof activityIcons] ??
+            CheckSquare;
+          const colors =
+            activityColors[activity.type as keyof typeof activityColors] ??
+            activityColors.TASK;
+
           return (
-            <div key={activity.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-background shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-sm z-10 ${colors}`}>
-                <Icon className="w-4 h-4" />
+            <div
+              key={activity.id}
+              className="group relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse"
+            >
+              <div
+                className={`z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-4 border-background shadow-sm md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 ${colors}`}
+              >
+                <Icon className="h-4 w-4" />
               </div>
-              <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-border bg-card shadow-sm">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-semibold text-sm">{activity.title}</span>
-                  <span className="text-xs text-muted">{formatDate(activity.date)}</span>
+              <div className="w-[calc(100%-4rem)] rounded-xl border border-border bg-card p-4 shadow-sm md:w-[calc(50%-2.5rem)]">
+                <div className="mb-1 flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold">
+                    {activity.title}
+                  </span>
+                  <span className="text-xs text-muted">
+                    {formatDate(activity.date)}
+                  </span>
                 </div>
-                <div className="text-xs text-muted mb-2 font-medium">
-                  {activityLabels[activity.type as keyof typeof activityLabels]} 
-                  {activity.createdBy ? ` · Por ${activity.createdBy.name}` : ''}
+                <div className="mb-2 flex flex-wrap items-center gap-2 text-xs font-medium text-muted">
+                  <span>
+                    {
+                      activityLabels[
+                        activity.type as keyof typeof activityLabels
+                      ]
+                    }
+                    {activity.createdBy
+                      ? ` · Por ${activity.createdBy.name}`
+                      : ''}
+                  </span>
+                  {activity.status ? (
+                    <StatusBadge
+                      value={activity.status}
+                      label={
+                        activity.status === 'PLANNED'
+                          ? 'Programada'
+                          : 'Completada'
+                      }
+                    />
+                  ) : null}
+                  {activity.isOverdue ? (
+                    <StatusBadge value="OVERDUE" label="Vencida" />
+                  ) : null}
                 </div>
-                {activity.description && (
-                  <p className="text-sm text-muted/90">{activity.description}</p>
-                )}
+                {activity.description ? (
+                  <p className="text-sm text-muted/90">
+                    {activity.description}
+                  </p>
+                ) : null}
+                {activity.status === 'PLANNED' ? (
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <p className="text-xs text-muted">
+                      {activity.dueDate
+                        ? `Seguimiento programado para ${formatDate(activity.dueDate)}`
+                        : 'Seguimiento pendiente'}
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={completeMutation.isPending}
+                      onClick={() => completeMutation.mutate(activity.id)}
+                    >
+                      Marcar completada
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             </div>
           );
@@ -130,28 +205,47 @@ export function ActivityTimeline({ opportunityId, companyId, contactId }: { oppo
         open={open}
         onClose={() => setOpen(false)}
         title="Registrar actividad"
-        description="Agrega un registro de seguimiento (Llamada, WhatsApp, Reunión...)."
+        description="Agrega un registro de seguimiento o programa el proximo paso comercial."
         schema={schema}
         fields={[
           {
             name: 'type',
             label: 'Tipo de actividad',
             type: 'select',
-            options: Object.entries(activityLabels).map(([value, label]) => ({ value, label })),
+            options: Object.entries(activityLabels).map(([value, label]) => ({
+              value,
+              label,
+            })),
           },
-          { name: 'title', label: 'Resumen o Título' },
-          { name: 'date', label: 'Fecha y hora', type: 'datetime-local' as any },
+          { name: 'title', label: 'Resumen o titulo' },
+          {
+            name: 'status',
+            label: 'Estado',
+            type: 'select',
+            options: [
+              { value: 'COMPLETED', label: 'Completada' },
+              { value: 'PLANNED', label: 'Programada' },
+            ],
+          },
+          {
+            name: 'date',
+            label: 'Fecha y hora',
+            type: 'datetime-local' as any,
+          },
           { name: 'description', label: 'Detalles / Notas', type: 'textarea' },
         ]}
         defaultValues={{
           type: 'CALL',
           title: '',
+          status: 'COMPLETED',
           date: new Date().toISOString().slice(0, 16),
           description: '',
         }}
         submitLabel="Guardar actividad"
         loading={mutation.isPending}
-        onSubmit={async (values) => mutation.mutateAsync(values as z.infer<typeof schema>)}
+        onSubmit={async (values) =>
+          mutation.mutateAsync(values as z.infer<typeof schema>)
+        }
       />
     </Card>
   );

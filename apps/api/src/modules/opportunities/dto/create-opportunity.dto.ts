@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { OpportunityStage, LeadSource, LostReason } from '@prisma/client';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsNumber,
@@ -21,8 +22,9 @@ export class CreateOpportunityDto {
   contactId?: string;
 
   @ApiProperty()
+  @IsOptional()
   @IsString()
-  ownerId!: string;
+  ownerId?: string;
 
   @ApiProperty()
   @IsString()
@@ -71,4 +73,9 @@ export class CreateOpportunityDto {
   @IsOptional()
   @IsString()
   lostReasonNotes?: string;
+
+  @ApiProperty({ required: false, default: false })
+  @IsOptional()
+  @IsBoolean()
+  allowPotentialDuplicate?: boolean;
 }

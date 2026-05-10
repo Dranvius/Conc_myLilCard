@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Download, Plus, SquarePen, Trash2, MapPin } from 'lucide-react';
 import { z } from 'zod';
 import { EntityDialog } from '@/components/forms/entity-dialog';
+import { PotentialDuplicateModal } from '@/components/forms/potential-duplicate-modal';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -17,8 +18,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DataTable } from '@/components/ui/table';
 import { useApiList } from '@/hooks/use-api-list';
 import { useBusinessUnits } from '@/hooks/use-reference-data';
-import { apiRequest } from '@/lib/api-client';
-import type { Company, Paged } from '@/lib/types';
+import { apiRequest, downloadApiFile } from '@/lib/api-client';
+import {
+  getPotentialDuplicates,
+  isPotentialDuplicateError,
+} from '@/lib/duplicates';
+import type { Company, Paged, PotentialDuplicate } from '@/lib/types';
 import { cleanPayload } from '@/lib/utils';
 
 const companySchema = z.object({
@@ -44,6 +49,12 @@ export default function CompaniesPage() {
   const [businessUnitId, setBusinessUnitId] = useState('');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Company | null>(null);
+  const [duplicateCandidates, setDuplicateCandidates] = useState<
+    PotentialDuplicate[]
+  >([]);
+  const [pendingValues, setPendingValues] = useState<
+    z.infer<typeof companySchema> | null
+  >(null);
   const { data, isLoading } = useApiList<Paged<Company>>(
     ['companies', search, status, businessUnitId],
     '/companies',
@@ -69,6 +80,14 @@ export default function CompaniesPage() {
       await queryClient.invalidateQueries({ queryKey: ['companies'] });
       setOpen(false);
       setEditing(null);
+      setPendingValues(null);
+      setDuplicateCandidates([]);
+    },
+    onError: (error, values) => {
+      if (isPotentialDuplicateError(error)) {
+        setPendingValues(values);
+        setDuplicateCandidates(getPotentialDuplicates(error));
+      }
     },
   });
 
@@ -112,12 +131,16 @@ export default function CompaniesPage() {
           <div className="flex gap-3">
             <Button
               variant="secondary"
-              onClick={() => {
+              onClick={async () => {
                 const params = new URLSearchParams();
                 if (search) params.set('search', search);
                 if (status) params.set('status', status);
-                if (businessUnitId) params.set('businessUnitId', businessUnitId);
-                window.open(`http://localhost:4000/api/companies/export/excel?${params.toString()}`, '_blank');
+                if (businessUnitId)
+                  params.set('businessUnitId', businessUnitId);
+                await downloadApiFile(
+                  `/companies/export/excel?${params.toString()}`,
+                  'empresas.xlsx',
+                );
               }}
             >
               <Download className="h-4 w-4 mr-2" />
@@ -306,6 +329,27 @@ export default function CompaniesPage() {
         submitLabel={editing ? 'Guardar cambios' : 'Crear empresa'}
         loading={mutation.isPending}
         onSubmit={async (values) => mutation.mutateAsync(values)}
+      />
+
+      <PotentialDuplicateModal
+        open={duplicateCandidates.length > 0}
+        duplicates={duplicateCandidates}
+        title="Posibles empresas duplicadas"
+        loading={mutation.isPending}
+        onClose={() => {
+          setDuplicateCandidates([]);
+          setPendingValues(null);
+        }}
+        onContinue={async () => {
+          if (!pendingValues) {
+            return;
+          }
+
+          await mutation.mutateAsync({
+            ...pendingValues,
+            allowPotentialDuplicate: true,
+          } as z.infer<typeof companySchema>);
+        }}
       />
     </div>
   );

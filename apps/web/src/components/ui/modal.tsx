@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from './button';
 import { Card } from './card';
@@ -20,22 +20,16 @@ export function Modal({
   children: ReactNode;
   footer?: ReactNode;
 }) {
-  const [mounted, setMounted] = useState(false);
-
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (open && mounted) {
+    if (open) {
       document.body.style.overflow = 'hidden';
     }
     return () => {
       document.body.style.overflow = '';
     };
-  }, [open, mounted]);
+  }, [open]);
 
-  if (!open || !mounted) return null;
+  if (!open || typeof document === 'undefined') return null;
 
   return createPortal(
     <div
@@ -70,6 +64,6 @@ export function Modal({
         </Card>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

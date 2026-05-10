@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 
 @Injectable()
@@ -55,9 +56,49 @@ export class NotificationsService {
     });
   }
 
-  async create(data: { userId: string; title: string; message: string }) {
-    return this.prisma.notification.create({
-      data,
-    });
+  async create(data: {
+    userId: string;
+    title: string;
+    message: string;
+    type?: NotificationType;
+    referenceType?: string;
+    referenceId?: string;
+    dedupeKey?: string;
+  }) {
+    if (data.dedupeKey) {
+      const existing = await this.prisma.notification.findUnique({
+        where: { dedupeKey: data.dedupeKey },
+      });
+
+      if (existing) {
+        return existing;
+      }
+    }
+
+    try {
+      return await this.prisma.notification.create({
+        data: {
+          userId: data.userId,
+          title: data.title,
+          message: data.message,
+          type: data.type ?? NotificationType.GENERAL,
+          referenceType: data.referenceType,
+          referenceId: data.referenceId,
+          dedupeKey: data.dedupeKey,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        data.dedupeKey
+      ) {
+        return this.prisma.notification.findUniqueOrThrow({
+          where: { dedupeKey: data.dedupeKey },
+        });
+      }
+
+      throw error;
+    }
   }
 }

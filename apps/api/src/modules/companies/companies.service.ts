@@ -1,48 +1,129 @@
-import { Injectable, StreamableFile } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  StreamableFile,
+} from '@nestjs/common';
 import * as ExcelJS from 'exceljs';
 import { Buffer } from 'buffer';
-import { CompanyStatus } from '@prisma/client';
+import { CompanyStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   buildPaginationMeta,
   resolvePagination,
 } from '../../common/utils/pagination';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { DuplicateDetectionService } from '../duplicates/duplicate-detection.service';
+import { throwPotentialDuplicate } from '../duplicates/potential-duplicate';
 import { CompanyQueryDto } from './dto/company-query.dto';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 
+type GeocodingResponseItem = {
+  lat?: string;
+  lon?: string;
+};
+
 @Injectable()
 export class CompaniesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(CompaniesService.name);
 
-  private async geocodeAddress(address?: string, city?: string, country?: string): Promise<{ latitude: number, longitude: number } | null> {
-    if (!address && !city) return null;
-    
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogsService: AuditLogsService,
+    private readonly duplicateDetectionService: DuplicateDetectionService,
+  ) {}
+
+  private buildWhere(query: CompanyQueryDto): Prisma.CompanyWhereInput {
+    return {
+      status: query.status || undefined,
+      businessUnitId: query.businessUnitId || undefined,
+      deletedAt: null,
+      OR: query.search
+        ? [
+            {
+              name: {
+                contains: query.search,
+                mode: 'insensitive',
+              },
+            },
+            {
+              legalName: {
+                contains: query.search,
+                mode: 'insensitive',
+              },
+            },
+            {
+              taxId: {
+                contains: query.search,
+                mode: 'insensitive',
+              },
+            },
+            {
+              city: {
+                contains: query.search,
+                mode: 'insensitive',
+              },
+            },
+            {
+              email: {
+                contains: query.search,
+                mode: 'insensitive',
+              },
+            },
+          ]
+        : undefined,
+    };
+  }
+
+  private async geocodeAddress(
+    address?: string,
+    city?: string,
+    country?: string,
+  ): Promise<{ latitude: number; longitude: number } | null> {
+    if (!address && !city) {
+      return null;
+    }
+
     const tryGeocode = async (queryStr: string) => {
       try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryStr)}`, {
-          headers: {
-            'User-Agent': 'RespiraCRM/1.0',
-          }
-        });
-        const data = await response.json();
-        if (data && data.length > 0) {
-          return {
-            latitude: parseFloat(data[0].lat),
-            longitude: parseFloat(data[0].lon),
-          };
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryStr)}`,
+          {
+            headers: {
+              'User-Agent': 'RespiraCRM/1.0',
+            },
+          },
+        );
+        if (!response.ok) {
+          return null;
         }
+
+        const data = (await response.json()) as GeocodingResponseItem[];
+        const firstMatch = data[0];
+        if (!firstMatch?.lat || !firstMatch?.lon) {
+          return null;
+        }
+
+        return {
+          latitude: Number.parseFloat(firstMatch.lat),
+          longitude: Number.parseFloat(firstMatch.lon),
+        };
       } catch (error) {
-        console.error('Error geocoding address:', error);
+        this.logger.warn(
+          JSON.stringify({
+            event: 'company.geocoding.failed',
+            query: queryStr,
+            message: error instanceof Error ? error.message : 'Unknown error',
+          }),
+        );
+        return null;
       }
-      return null;
     };
 
-    // Try full address first
     const fullQuery = [address, city, country].filter(Boolean).join(', ');
     let coords = await tryGeocode(fullQuery);
 
-    // Fallback: If address fails (common with LATAM formats like "Carrera X # Y"), try just the city
     if (!coords && address && city) {
       const cityQuery = [city, country].filter(Boolean).join(', ');
       coords = await tryGeocode(cityQuery);
@@ -53,45 +134,7 @@ export class CompaniesService {
 
   async findMany(query: CompanyQueryDto) {
     const { page, limit, skip } = resolvePagination(query.page, query.limit);
-    const where = {
-      status: query.status || undefined,
-      businessUnitId: query.businessUnitId || undefined,
-      deletedAt: null,
-      OR: query.search
-        ? [
-            {
-              name: {
-                contains: query.search,
-                mode: 'insensitive' as const,
-              },
-            },
-            {
-              legalName: {
-                contains: query.search,
-                mode: 'insensitive' as const,
-              },
-            },
-            {
-              taxId: {
-                contains: query.search,
-                mode: 'insensitive' as const,
-              },
-            },
-            {
-              city: {
-                contains: query.search,
-                mode: 'insensitive' as const,
-              },
-            },
-            {
-              email: {
-                contains: query.search,
-                mode: 'insensitive' as const,
-              },
-            },
-          ]
-        : undefined,
-    };
+    const where = this.buildWhere(query);
 
     const [data, total] = await this.prisma.$transaction([
       this.prisma.company.findMany({
@@ -195,48 +238,111 @@ export class CompaniesService {
     });
   }
 
-  async create(createCompanyDto: CreateCompanyDto) {
-    let coords = null;
-    if (createCompanyDto.address || createCompanyDto.city) {
-      coords = await this.geocodeAddress(createCompanyDto.address, createCompanyDto.city, createCompanyDto.country);
+  async create(
+    createCompanyDto: CreateCompanyDto,
+    actorUserId?: string,
+    ipAddress?: string,
+  ) {
+    const duplicates =
+      await this.duplicateDetectionService.findCompanyDuplicates(
+        createCompanyDto,
+      );
+    if (duplicates.length && !createCompanyDto.allowPotentialDuplicate) {
+      throwPotentialDuplicate('la empresa', duplicates);
     }
 
-    const data = { ...createCompanyDto } as any;
-    if (coords) {
-      data.latitude = coords.latitude;
-      data.longitude = coords.longitude;
-    }
+    const coords =
+      createCompanyDto.address || createCompanyDto.city
+        ? await this.geocodeAddress(
+            createCompanyDto.address,
+            createCompanyDto.city,
+            createCompanyDto.country,
+          )
+        : null;
 
-    return this.prisma.company.create({
-      data,
+    const company = await this.prisma.company.create({
+      data: {
+        name: createCompanyDto.name,
+        legalName: createCompanyDto.legalName,
+        taxId: createCompanyDto.taxId,
+        customerType: createCompanyDto.customerType,
+        phone: createCompanyDto.phone,
+        email: createCompanyDto.email,
+        website: createCompanyDto.website,
+        address: createCompanyDto.address,
+        city: createCompanyDto.city,
+        country: createCompanyDto.country,
+        businessUnitId: createCompanyDto.businessUnitId,
+        status: createCompanyDto.status,
+        latitude: coords?.latitude,
+        longitude: coords?.longitude,
+      },
       include: {
         businessUnit: true,
       },
     });
+
+    await this.auditLogsService.create({
+      userId: actorUserId,
+      action: duplicates.length
+        ? 'COMPANY_CREATED_DUPLICATE_OVERRIDE'
+        : 'COMPANY_CREATED',
+      entity: 'Company',
+      entityId: company.id,
+      metadata: {
+        businessUnitId: company.businessUnitId,
+        status: company.status,
+        duplicateIds: duplicates.map((item) => item.id),
+      },
+      ipAddress,
+    });
+
+    return company;
   }
 
-  async update(id: string, updateCompanyDto: UpdateCompanyDto) {
-    let coords = null;
-    if (updateCompanyDto.address || updateCompanyDto.city) {
-      coords = await this.geocodeAddress(updateCompanyDto.address, updateCompanyDto.city, updateCompanyDto.country);
-    }
+  async update(
+    id: string,
+    updateCompanyDto: UpdateCompanyDto,
+    actorUserId?: string,
+    ipAddress?: string,
+  ) {
+    const coords =
+      updateCompanyDto.address || updateCompanyDto.city
+        ? await this.geocodeAddress(
+            updateCompanyDto.address,
+            updateCompanyDto.city,
+            updateCompanyDto.country,
+          )
+        : null;
 
-    const data = { ...updateCompanyDto } as any;
-    if (coords) {
-      data.latitude = coords.latitude;
-      data.longitude = coords.longitude;
-    }
-
-    return this.prisma.company.update({
+    const company = await this.prisma.company.update({
       where: { id },
-      data,
+      data: {
+        ...updateCompanyDto,
+        latitude: coords?.latitude,
+        longitude: coords?.longitude,
+      },
       include: {
         businessUnit: true,
       },
     });
+
+    await this.auditLogsService.create({
+      userId: actorUserId,
+      action: 'COMPANY_UPDATED',
+      entity: 'Company',
+      entityId: company.id,
+      metadata: {
+        businessUnitId: company.businessUnitId,
+        status: company.status,
+      },
+      ipAddress,
+    });
+
+    return company;
   }
 
-  async remove(id: string) {
+  async remove(id: string, actorUserId?: string, ipAddress?: string) {
     await this.prisma.company.update({
       where: { id },
       data: {
@@ -245,23 +351,23 @@ export class CompaniesService {
       },
     });
 
+    await this.auditLogsService.create({
+      userId: actorUserId,
+      action: 'COMPANY_ARCHIVED',
+      entity: 'Company',
+      entityId: id,
+      ipAddress,
+    });
+
     return { success: true };
   }
 
-  async exportToExcel(query: CompanyQueryDto) {
-    const where = {
-      status: query.status || undefined,
-      businessUnitId: query.businessUnitId || undefined,
-      deletedAt: null,
-      OR: query.search
-        ? [
-            { name: { contains: query.search, mode: 'insensitive' as const } },
-            { legalName: { contains: query.search, mode: 'insensitive' as const } },
-            { taxId: { contains: query.search, mode: 'insensitive' as const } },
-          ]
-        : undefined,
-    };
-
+  async exportToExcel(
+    query: CompanyQueryDto,
+    actorUserId?: string,
+    ipAddress?: string,
+  ) {
+    const where = this.buildWhere(query);
     const companies = await this.prisma.company.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -282,24 +388,23 @@ export class CompaniesService {
 
     worksheet.columns = [
       { header: 'Nombre', key: 'name', width: 30 },
-      { header: 'Razón Social', key: 'legalName', width: 30 },
+      { header: 'Razon social', key: 'legalName', width: 30 },
       { header: 'NIT/RUT', key: 'taxId', width: 15 },
       { header: 'Tipo', key: 'customerType', width: 15 },
       { header: 'Estado', key: 'status', width: 15 },
-      { header: 'Unidad de Negocio', key: 'businessUnit', width: 20 },
+      { header: 'Unidad de negocio', key: 'businessUnit', width: 20 },
       { header: 'Ciudad', key: 'city', width: 15 },
-      { header: 'Teléfono', key: 'phone', width: 20 },
+      { header: 'Telefono', key: 'phone', width: 20 },
       { header: 'Email', key: 'email', width: 30 },
       { header: 'Contactos', key: 'contactsCount', width: 10 },
       { header: 'Oportunidades', key: 'opportunitiesCount', width: 15 },
     ];
 
-    // Estilo para la cabecera
     worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
     worksheet.getRow(1).fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FF0F6C8D' }, // Color primario de RespiraCRM
+      fgColor: { argb: 'FF0F6C8D' },
     };
 
     companies.forEach((company) => {
@@ -318,8 +423,26 @@ export class CompaniesService {
       });
     });
 
+    await this.auditLogsService.create({
+      userId: actorUserId,
+      action: 'COMPANIES_EXPORTED',
+      entity: 'Company',
+      entityId: 'bulk-export',
+      metadata: {
+        total: companies.length,
+        filters: query,
+      },
+      ipAddress,
+    });
+
+    this.logger.log(
+      JSON.stringify({
+        event: 'companies.export.completed',
+        total: companies.length,
+      }),
+    );
+
     const buffer = await workbook.xlsx.writeBuffer();
-    const nodeBuffer = Buffer.from(buffer as ArrayBuffer);
-    return new StreamableFile(nodeBuffer);
+    return new StreamableFile(Buffer.from(buffer));
   }
 }

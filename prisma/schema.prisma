@@ -104,6 +104,16 @@ enum ProductSegment {
   BOTH
 }
 
+enum NotificationType {
+  GENERAL
+  PUBLIC_LEAD
+  OPPORTUNITY_ASSIGNED
+  ACTIVITY_DUE
+  ACTIVITY_OVERDUE
+  PROPOSAL_EXPIRING
+  INVOICE_OVERDUE
+}
+
 model User {
   id                    String             @id @default(cuid())
   name                  String
@@ -123,6 +133,7 @@ model User {
   auditLogs             AuditLog[]
   notifications         Notification[]
   activities            Activity[]
+  opportunityStageChanges OpportunityStageHistory[] @relation("OpportunityStageChangedBy")
 
   @@index([email])
   @@index([roleId])
@@ -167,6 +178,7 @@ model BusinessUnit {
   companies     Company[]
   products      Product[]
   opportunities SalesOpportunity[]
+  assignmentRules AssignmentRule[]
 
   @@index([createdAt])
 }
@@ -215,6 +227,7 @@ model Contact {
   email       String?
   phone       String?
   notes       String?
+  source      LeadSource?
   deletedAt   DateTime?
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
@@ -225,6 +238,7 @@ model Contact {
 
   @@index([companyId])
   @@index([email])
+  @@index([source])
   @@index([createdAt])
   @@index([deletedAt])
 }
@@ -268,6 +282,7 @@ model SalesOpportunity {
   probability       Int
   expectedCloseDate DateTime?
   source            LeadSource?
+  stageChangedAt    DateTime         @default(now())
   lostReason        LostReason?
   lostReasonNotes   String?
   notes             String?
@@ -280,13 +295,32 @@ model SalesOpportunity {
   proposals         Proposal[]
   sales             Sale[]
   activities        Activity[]
+  stageHistory      OpportunityStageHistory[]
 
   @@index([companyId])
   @@index([contactId])
   @@index([ownerId])
   @@index([businessUnitId])
   @@index([stage])
+  @@index([source])
+  @@index([stageChangedAt])
   @@index([createdAt])
+}
+
+model OpportunityStageHistory {
+  id            String           @id @default(cuid())
+  opportunityId String
+  fromStage     OpportunityStage?
+  toStage       OpportunityStage
+  changedById   String?
+  changedAt     DateTime         @default(now())
+  metadata      Json?
+  opportunity   SalesOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  changedBy     User?            @relation("OpportunityStageChangedBy", fields: [changedById], references: [id])
+
+  @@index([opportunityId, changedAt])
+  @@index([changedById])
+  @@index([toStage])
 }
 
 model Proposal {
@@ -440,17 +474,67 @@ model AuditLog {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  title     String
-  message   String
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String           @id @default(cuid())
+  userId        String
+  title         String
+  message       String
+  type          NotificationType @default(GENERAL)
+  referenceType String?
+  referenceId   String?
+  dedupeKey     String?          @unique
+  isRead        Boolean          @default(false)
+  createdAt     DateTime         @default(now())
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([type])
   @@index([isRead])
+  @@index([referenceType, referenceId])
   @@index([createdAt])
+}
+
+model AssignmentCursor {
+  id             String   @id @default(cuid())
+  scopeKey       String   @unique
+  entityType     String
+  roleName       String
+  businessUnitId String?
+  lastUserId     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([entityType])
+  @@index([roleName])
+  @@index([businessUnitId])
+  @@index([lastUserId])
+}
+
+model AssignmentRule {
+  id                String       @id @default(cuid())
+  name              String
+  entityType        String
+  isActive          Boolean      @default(true)
+  priority          Int          @default(100)
+  roleName          String       @default("SALES")
+  businessUnitId    String?
+  leadSource        LeadSource?
+  city              String?
+  country           String?
+  minEstimatedValue Decimal?     @db.Decimal(12, 2)
+  maxEstimatedValue Decimal?     @db.Decimal(12, 2)
+  minProbability    Int?
+  maxProbability    Int?
+  priorityBand      String?
+  targetUserIds     Json?
+  metadata          Json?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  businessUnit      BusinessUnit? @relation(fields: [businessUnitId], references: [id])
+
+  @@index([entityType, isActive, priority])
+  @@index([businessUnitId])
+  @@index([leadSource])
+  @@index([city])
 }
 
 model Activity {
