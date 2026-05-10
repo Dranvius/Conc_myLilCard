@@ -62,6 +62,12 @@ export class CreateProposalDto {
   @IsString()
   notes?: string;
 
+  @ApiProperty({ required: false, default: 19 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  taxRate?: number;
+
   @ApiProperty({ type: [ProposalItemInputDto] })
   @IsArray()
   @ValidateNested({ each: true })

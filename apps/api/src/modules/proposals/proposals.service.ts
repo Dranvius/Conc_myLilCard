@@ -11,10 +11,14 @@ import {
 import { ProposalQueryDto } from './dto/proposal-query.dto';
 import { UpdateProposalStatusDto } from './dto/update-proposal-status.dto';
 import { UpdateProposalDto } from './dto/update-proposal.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ProposalsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async findMany(query: ProposalQueryDto) {
     const { page, limit, skip } = resolvePagination(query.page, query.limit);
@@ -127,7 +131,10 @@ export class ProposalsService {
 
   async create(createProposalDto: CreateProposalDto) {
     const items = await this.buildItems(createProposalDto.items);
-    const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
+    const subtotal = items.reduce((sum, item) => sum + item.total, 0);
+    const taxRate = createProposalDto.taxRate ?? 19;
+    const taxAmount = subtotal * (taxRate / 100);
+    const totalAmount = subtotal + taxAmount;
 
     return this.prisma.$transaction(async (tx) => {
       const proposal = await tx.proposal.create({
@@ -136,6 +143,9 @@ export class ProposalsService {
           code: createProposalDto.code,
           title: createProposalDto.title,
           status: createProposalDto.status,
+          subtotal,
+          taxRate,
+          taxAmount,
           totalAmount,
           validUntil: createProposalDto.validUntil
             ? new Date(createProposalDto.validUntil)
@@ -171,12 +181,19 @@ export class ProposalsService {
   }
 
   async update(id: string, updateProposalDto: UpdateProposalDto) {
+    const currentProposal = await this.prisma.proposal.findUniqueOrThrow({ where: { id } });
+    
     const items = updateProposalDto.items
       ? await this.buildItems(updateProposalDto.items)
       : null;
-    const totalAmount = items
+      
+    const subtotal = items
       ? items.reduce((sum, item) => sum + item.total, 0)
-      : undefined;
+      : Number(currentProposal.subtotal);
+      
+    const taxRate = updateProposalDto.taxRate ?? Number(currentProposal.taxRate);
+    const taxAmount = subtotal * (taxRate / 100);
+    const totalAmount = subtotal + taxAmount;
 
     return this.prisma.$transaction(async (tx) => {
       await tx.proposal.update({
@@ -186,6 +203,9 @@ export class ProposalsService {
           code: updateProposalDto.code,
           title: updateProposalDto.title,
           status: updateProposalDto.status,
+          subtotal,
+          taxRate,
+          taxAmount,
           totalAmount,
           validUntil: updateProposalDto.validUntil
             ? new Date(updateProposalDto.validUntil)
@@ -225,8 +245,8 @@ export class ProposalsService {
     });
   }
 
-  updateStatus(id: string, updateProposalStatusDto: UpdateProposalStatusDto) {
-    return this.prisma.proposal.update({
+  async updateStatus(id: string, updateProposalStatusDto: UpdateProposalStatusDto) {
+    const proposal = await this.prisma.proposal.update({
       where: { id },
       data: {
         status: updateProposalStatusDto.status,
@@ -245,5 +265,16 @@ export class ProposalsService {
         },
       },
     });
+
+    // Crear notificación si la propuesta fue aceptada
+    if (updateProposalStatusDto.status === 'ACCEPTED') {
+      await this.notifications.create({
+        userId: proposal.opportunity.ownerId,
+        title: '¡Propuesta aceptada!',
+        message: `La propuesta comercial ${proposal.code} dirigida a ${proposal.opportunity.company.name} ha sido aprobada.`,
+      });
+    }
+
+    return proposal;
   }
 }

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, SquarePen, Trash2 } from 'lucide-react';
+import { Download, Plus, SquarePen, Trash2, MapPin } from 'lucide-react';
 import { z } from 'zod';
 import { EntityDialog } from '@/components/forms/entity-dialog';
 import { PageHeader } from '@/components/layout/page-header';
@@ -109,15 +109,36 @@ export default function CompaniesPage() {
         title="Empresas"
         description="Administra cuentas, datos fiscales y la relación por unidad de negocio."
         action={
-          <Button
-            onClick={() => {
-              setEditing(null);
-              setOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Crear empresa
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                const params = new URLSearchParams();
+                if (search) params.set('search', search);
+                if (status) params.set('status', status);
+                if (businessUnitId) params.set('businessUnitId', businessUnitId);
+                window.open(`http://localhost:4000/api/companies/export/excel?${params.toString()}`, '_blank');
+              }}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Descargar Excel
+            </Button>
+            <Link href="/companies/map">
+              <Button variant="secondary" className="gap-2">
+                <MapPin className="h-4 w-4" />
+                Ver Mapa
+              </Button>
+            </Link>
+            <Button
+              onClick={() => {
+                setEditing(null);
+                setOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Crear empresa
+            </Button>
+          </div>
         }
       />
 

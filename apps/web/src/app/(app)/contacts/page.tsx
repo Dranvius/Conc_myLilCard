@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, SquarePen, Trash2 } from 'lucide-react';
+import { Plus, SquarePen, Trash2, Eye } from 'lucide-react';
 import { z } from 'zod';
+import { ActivityTimeline } from '@/components/activities/ActivityTimeline';
+import { Modal } from '@/components/ui/modal';
 import { EntityDialog } from '@/components/forms/entity-dialog';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
@@ -35,6 +37,7 @@ export default function ContactsPage() {
   const [companyId, setCompanyId] = useState('');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
+  const [viewing, setViewing] = useState<Contact | null>(null);
   const { data, isLoading } = useApiList<Paged<Contact>>(
     ['contacts', search, companyId],
     '/contacts',
@@ -178,6 +181,14 @@ export default function ContactsPage() {
                   <Button
                     variant="ghost"
                     size="sm"
+                    onClick={() => setViewing(item)}
+                    title="Ver detalle y actividades"
+                  >
+                    <Eye className="h-4 w-4 text-primary" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => {
                       setEditing(item);
                       setOpen(true);
@@ -237,6 +248,37 @@ export default function ContactsPage() {
         loading={mutation.isPending}
         onSubmit={async (values) => mutation.mutateAsync(values)}
       />
+
+      {/* Modal de Vista 360° para el Contacto */}
+      <Modal
+        open={!!viewing}
+        onClose={() => setViewing(null)}
+        title={viewing ? `Historial: ${viewing.firstName} ${viewing.lastName}` : 'Detalle'}
+        description={viewing?.position ? `${viewing.position} en ${viewing.company?.name || 'Sin empresa'}` : viewing?.company?.name || ''}
+      >
+        {viewing && (
+          <div className="flex flex-col gap-6 py-4">
+            <div className="grid grid-cols-2 gap-4 rounded-xl bg-slate-50 p-4 text-sm">
+              <div>
+                <span className="block font-semibold text-muted-foreground uppercase text-xs">Correo</span>
+                <span className="font-medium">{viewing.email || 'No registrado'}</span>
+              </div>
+              <div>
+                <span className="block font-semibold text-muted-foreground uppercase text-xs">Teléfono</span>
+                <span className="font-medium">{viewing.phone || 'No registrado'}</span>
+              </div>
+              {viewing.notes && (
+                <div className="col-span-2">
+                  <span className="block font-semibold text-muted-foreground uppercase text-xs">Notas</span>
+                  <p className="text-muted">{viewing.notes}</p>
+                </div>
+              )}
+            </div>
+
+            <ActivityTimeline contactId={viewing.id} />
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

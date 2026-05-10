@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { OpportunityStage } from '@prisma/client';
+import { OpportunityStage, LeadSource, LostReason } from '@prisma/client';
 import {
   IsDateString,
   IsEnum,
@@ -56,4 +56,19 @@ export class CreateOpportunityDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiProperty({ enum: LeadSource, required: false })
+  @IsOptional()
+  @IsEnum(LeadSource)
+  source?: LeadSource;
+
+  @ApiProperty({ enum: LostReason, required: false })
+  @IsOptional()
+  @IsEnum(LostReason)
+  lostReason?: LostReason;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  lostReasonNotes?: string;
 }

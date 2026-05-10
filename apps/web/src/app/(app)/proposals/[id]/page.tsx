@@ -10,6 +10,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { apiRequest } from '@/lib/api-client';
 import { formatCurrency, formatDate } from '@/lib/format';
 import type { Proposal } from '@/lib/types';
+import dynamic from 'next/dynamic';
+
+const DownloadPdfButton = dynamic(
+  () => import('@/components/pdf/download-pdf-button').then((mod) => mod.DownloadPdfButton),
+  { ssr: false }
+);
 
 export default function ProposalDetailPage() {
   const params = useParams<{ id: string }>();
@@ -28,6 +34,7 @@ export default function ProposalDetailPage() {
         eyebrow="Documento comercial"
         title={data.title}
         description={`${data.code} · ${data.opportunity?.company?.name ?? 'Sin empresa'}`}
+        action={<DownloadPdfButton proposal={data} />}
       />
 
       <div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">

@@ -19,11 +19,15 @@ import { ProductsModule } from './modules/products/products.module';
 import { OpportunitiesModule } from './modules/opportunities/opportunities.module';
 import { ProposalsModule } from './modules/proposals/proposals.module';
 import { SalesModule } from './modules/sales/sales.module';
+import { SearchModule } from './modules/search/search.module';
 import { ServiceOrdersModule } from './modules/service-orders/service-orders.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { ActivitiesModule } from './modules/activities/activities.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { CalendarModule } from './modules/calendar/calendar.module';
 
 @Module({
   imports: [
@@ -54,6 +58,10 @@ import { AdminModule } from './modules/admin/admin.module';
     ReviewsModule,
     MetricsModule,
     AdminModule,
+    ActivitiesModule,
+    SearchModule,
+    NotificationsModule,
+    CalendarModule,
   ],
   providers: [
     {

@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, SquarePen } from 'lucide-react';
+import { Plus, SquarePen, LayoutList, Columns } from 'lucide-react';
+import { KanbanBoard } from '@/components/kanban/KanbanBoard';
 import { z } from 'zod';
 import { EntityDialog } from '@/components/forms/entity-dialog';
 import { PageHeader } from '@/components/layout/page-header';
@@ -55,6 +56,7 @@ export default function OpportunitiesPage() {
   const [businessUnitId, setBusinessUnitId] = useState('');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Opportunity | null>(null);
+  const [view, setView] = useState<'table' | 'board'>('board');
   const { data, isLoading } = useApiList<Paged<Opportunity>>(
     ['opportunities', search, stage, businessUnitId],
     '/opportunities',
@@ -150,15 +152,35 @@ export default function OpportunitiesPage() {
         title="Oportunidades"
         description="Gestiona las etapas comerciales desde el primer contacto hasta el cierre."
         action={
-          <Button
-            onClick={() => {
-              setEditing(null);
-              setOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Crear oportunidad
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex bg-muted p-1 rounded-md">
+              <Button
+                variant={view === 'board' ? 'secondary' : 'ghost'}
+                size="sm"
+                className="h-8 px-2"
+                onClick={() => setView('board')}
+              >
+                <Columns className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={view === 'table' ? 'secondary' : 'ghost'}
+                size="sm"
+                className="h-8 px-2"
+                onClick={() => setView('table')}
+              >
+                <LayoutList className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button
+              onClick={() => {
+                setEditing(null);
+                setOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Crear oportunidad
+            </Button>
+          </div>
         }
       />
 
@@ -204,6 +226,11 @@ export default function OpportunitiesPage() {
 
       {isLoading ? (
         <Skeleton className="h-[340px] w-full" />
+      ) : view === 'board' ? (
+        <KanbanBoard 
+          data={data?.data ?? []} 
+          onUpdate={() => queryClient.invalidateQueries({ queryKey: ['opportunities'] })} 
+        />
       ) : (
         <DataTable
           data={data?.data ?? []}

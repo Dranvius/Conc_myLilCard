@@ -192,4 +192,100 @@ export class MetricsService {
       })),
     };
   }
+
+  async getPipelineConversion() {
+    const opps = await this.prisma.salesOpportunity.findMany({
+      select: { stage: true }
+    });
+    const counts = {
+      NEW: 0, CONTACTED: 0, QUALIFIED: 0, 
+      PROPOSAL_SENT: 0, NEGOTIATION: 0, WON: 0, LOST: 0
+    };
+    for (const opp of opps) {
+      if (counts[opp.stage as keyof typeof counts] !== undefined) {
+        counts[opp.stage as keyof typeof counts]++;
+      }
+    }
+    return [
+      { name: 'NUEVA', value: counts.NEW },
+      { name: 'CONTACTADA', value: counts.CONTACTED },
+      { name: 'CALIFICADA', value: counts.QUALIFIED },
+      { name: 'PROPUESTA ENV.', value: counts.PROPOSAL_SENT },
+      { name: 'NEGOCIACIÓN', value: counts.NEGOTIATION },
+      { name: 'GANADA', value: counts.WON },
+    ];
+  }
+
+  async getSalesByPeriod(year: number) {
+    const sales = await this.prisma.sale.findMany({
+      where: { 
+        status: SaleStatus.CLOSED,
+        closedAt: {
+          gte: new Date(year, 0, 1),
+          lt: new Date(year + 1, 0, 1)
+        }
+      },
+      select: { closedAt: true, totalAmount: true }
+    });
+
+    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const result = months.map(month => ({ month, totalAmount: 0, count: 0 }));
+
+    for (const sale of sales) {
+      if (sale.closedAt) {
+        const monthIndex = sale.closedAt.getMonth();
+        result[monthIndex].totalAmount += Number(sale.totalAmount);
+        result[monthIndex].count += 1;
+      }
+    }
+    return result;
+  }
+
+  async getForecast() {
+    const opps = await this.prisma.salesOpportunity.findMany({
+      where: {
+        stage: { notIn: [OpportunityStage.WON, OpportunityStage.LOST] },
+        expectedCloseDate: { not: null }
+      },
+      select: { expectedCloseDate: true, estimatedValue: true, probability: true }
+    });
+
+    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const currentYear = new Date().getFullYear();
+    const result = months.map(month => ({ month, expectedValue: 0 }));
+
+    for (const opp of opps) {
+      if (opp.expectedCloseDate && opp.expectedCloseDate.getFullYear() === currentYear) {
+        const monthIndex = opp.expectedCloseDate.getMonth();
+        const weighted = Number(opp.estimatedValue) * (opp.probability / 100);
+        result[monthIndex].expectedValue += weighted;
+      }
+    }
+    return result;
+  }
+
+  async getSellers() {
+    const sellers = await this.prisma.user.findMany({
+      where: { isActive: true },
+      include: {
+        ownedOpportunities: { select: { id: true } },
+        sales: { 
+          where: { status: SaleStatus.CLOSED },
+          select: { totalAmount: true } 
+        }
+      }
+    });
+
+    return sellers.map(s => {
+      const totalAmount = s.sales.reduce((acc, sale) => acc + Number(sale.totalAmount), 0);
+      return {
+        id: s.id,
+        name: s.name,
+        email: s.email,
+        opportunities: s.ownedOpportunities.length,
+        closedSales: s.sales.length,
+        totalAmount,
+      };
+    }).sort((a, b) => b.totalAmount - a.totalAmount).filter(s => s.opportunities > 0 || s.closedSales > 0);
+  }
 }

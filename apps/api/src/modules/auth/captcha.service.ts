@@ -15,6 +15,11 @@ export class CaptchaService {
     if (!provider || !secret) {
       const isDevBypass =
         process.env.NODE_ENV !== 'production' && token === 'dev-token';
+      
+      this.logger.warn(
+        `CAPTCHA vars missing. Provider: ${provider ? 'set' : 'missing'}, Secret: ${secret ? 'set' : 'missing'}. DevBypass: ${isDevBypass}`
+      );
+
       if (isDevBypass) {
         this.logger.warn(
           'CAPTCHA running in development bypass mode with dev-token.',
@@ -42,7 +47,10 @@ export class CaptchaService {
       return false;
     }
 
-    const result = (await response.json()) as { success?: boolean };
+    const result = (await response.json()) as { success?: boolean; 'error-codes'?: string[] };
+    if (!result.success) {
+      this.logger.error(`CAPTCHA verification failed: ${JSON.stringify(result['error-codes'])}`);
+    }
     return Boolean(result.success);
   }
 }
