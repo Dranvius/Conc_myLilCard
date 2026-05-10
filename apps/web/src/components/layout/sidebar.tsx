@@ -11,7 +11,7 @@ export function Sidebar({ user }: { user: CurrentUser }) {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden w-[280px] shrink-0 border-r border-white/70 bg-[linear-gradient(180deg,rgba(15,108,141,0.98),rgba(8,76,97,0.98))] p-6 text-white xl:flex xl:flex-col">
+    <aside className="hidden w-[280px] shrink-0 overflow-y-auto border-r border-white/70 bg-[linear-gradient(180deg,rgba(15,108,141,0.98),rgba(8,76,97,0.98))] p-6 text-white scrollbar-hide xl:flex xl:flex-col">
       <div className="mb-10">
         <div className="inline-flex items-center rounded-2xl bg-white/12 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
           RespiraCRM

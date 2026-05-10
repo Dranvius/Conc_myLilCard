@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
 import { ActivityTimeline } from '@/components/activities/ActivityTimeline';
+import { AISummary } from '@/components/ai/AISummary';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/badge';
@@ -62,6 +63,7 @@ export default function OpportunityDetailPage() {
 
       <div className="grid gap-6 xl:grid-cols-2">
         <div className="space-y-6">
+          <AISummary opportunityId={data.id} />
           <Card className="p-6">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-lg font-semibold">Informacion general</h3>

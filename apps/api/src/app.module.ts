@@ -28,6 +28,13 @@ import { AdminModule } from './modules/admin/admin.module';
 import { ActivitiesModule } from './modules/activities/activities.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
+import { MailModule } from './modules/mail/mail.module';
+import { EmailSequencesModule } from './modules/email-sequences/email-sequences.module';
+import { DuplicatesModule } from './modules/duplicates/duplicates.module';
+import { CPQModule } from './modules/cpq/cpq.module';
+import { AIModule } from './modules/ai/ai.module';
+import { GamificationModule } from './modules/gamification/gamification.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -35,6 +42,7 @@ import { CalendarModule } from './modules/calendar/calendar.module';
       isGlobal: true,
       envFilePath: ['../../.env', '.env'],
     }),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([
       {
         ttl: 60_000,
@@ -62,6 +70,12 @@ import { CalendarModule } from './modules/calendar/calendar.module';
     SearchModule,
     NotificationsModule,
     CalendarModule,
+    MailModule,
+    EmailSequencesModule,
+    DuplicatesModule,
+    CPQModule,
+    AIModule,
+    GamificationModule,
   ],
   providers: [
     {

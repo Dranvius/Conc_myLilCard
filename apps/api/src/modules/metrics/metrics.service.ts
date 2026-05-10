@@ -81,6 +81,8 @@ type CommercialSnapshot = Awaited<
   hasFutureActivity: boolean;
   hasOverdueActivity: boolean;
   hasCompletedActivity: boolean;
+  ownerId: string;
+  businessUnitId: string;
   followUpCompliance:
     | 'OVERDUE'
     | 'DUE_TODAY'
@@ -321,13 +323,15 @@ export class MetricsService {
         hasFutureActivity,
         hasOverdueActivity,
         hasCompletedActivity: completedActivities.length > 0,
-        followUpCompliance: hasOverdueActivity
+        ownerId: raw.ownerId,
+        businessUnitId: raw.businessUnitId,
+        followUpCompliance: (hasOverdueActivity
           ? 'OVERDUE'
           : !item.nextActivityAt
             ? 'NO_NEXT_ACTIVITY'
             : this.isToday(item.nextActivityAt)
               ? 'DUE_TODAY'
-              : 'ON_TRACK',
+              : 'ON_TRACK') as 'OVERDUE' | 'DUE_TODAY' | 'NO_NEXT_ACTIVITY' | 'ON_TRACK',
         raw,
       };
     });

@@ -76,3 +76,13 @@ textarea {
 ::selection {
   background: rgba(15, 108, 141, 0.18);
 }
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

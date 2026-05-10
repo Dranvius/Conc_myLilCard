@@ -18,9 +18,7 @@ export const followUpInboxBuckets = [
 export type FollowUpInboxBucket = (typeof followUpInboxBuckets)[number];
 
 export class FollowUpInboxQueryDto extends PaginationQueryDto {
-  @IsOptional()
-  @IsString()
-  search?: string;
+
 
   @IsOptional()
   @IsString()

@@ -29,6 +29,8 @@ import { OpportunityQueryDto } from './dto/opportunity-query.dto';
 import { UpdateOpportunityStageDto } from './dto/update-opportunity-stage.dto';
 import { UpdateOpportunityDto } from './dto/update-opportunity.dto';
 import { LeadScoringService } from './lead-scoring.service';
+import { EmailSequencesService } from '../email-sequences/email-sequences.service';
+import { GamificationService } from '../gamification/gamification.service';
 
 type OpportunityListItem = Prisma.SalesOpportunityGetPayload<{
   include: {
@@ -128,6 +130,8 @@ export class OpportunitiesService {
     private readonly assignmentService: AssignmentService,
     private readonly leadScoringService: LeadScoringService,
     private readonly duplicateDetectionService: DuplicateDetectionService,
+    private readonly emailSequencesService: EmailSequencesService,
+    private readonly gamificationService: GamificationService,
   ) {}
 
   private buildWhere(
@@ -229,8 +233,8 @@ export class OpportunitiesService {
       opportunity.stage === OpportunityStage.NEW &&
       opportunity.totalActivitiesCount === 0;
     const noResponse =
-      [OpportunityStage.NEW, OpportunityStage.CONTACTED].includes(
-        opportunity.stage as OpportunityStage,
+      ([OpportunityStage.NEW, OpportunityStage.CONTACTED] as string[]).includes(
+        opportunity.stage,
       ) &&
       (daysSinceLastContact ?? opportunity.daysWithoutMovement ?? 0) >= 5 &&
       hasNoNextActivity;
@@ -343,7 +347,7 @@ export class OpportunitiesService {
         fromStage: params.fromStage ?? null,
         toStage: params.toStage,
         changedById: params.changedById ?? null,
-        metadata: params.metadata,
+        metadata: params.metadata as any,
       },
     });
   }
@@ -607,6 +611,26 @@ export class OpportunitiesService {
       ipAddress,
     });
 
+    if (opportunity.contactId) {
+      try {
+        const welcomeSequence = await this.prisma.emailSequence.findFirst({
+          where: { name: 'SECUENCIA_BIENVENIDA', isActive: true },
+        });
+
+        if (welcomeSequence) {
+          await this.emailSequencesService.enrollContact({
+            contactId: opportunity.contactId,
+            sequenceId: welcomeSequence.id,
+            opportunityId: opportunity.id,
+          });
+          this.logger.log(`Contact ${opportunity.contactId} enrolled in welcome sequence.`);
+        }
+      } catch (e) {
+        this.logger.error('Failed to auto-enroll contact in sequence:', e);
+      }
+    }
+
+
     if (assignment) {
       await this.notificationsService.create({
         userId: assignment.user.id,
@@ -724,6 +748,15 @@ export class OpportunitiesService {
     });
 
     if (stageChanged) {
+      if (opportunity.stage === 'WON') {
+        await this.gamificationService.awardPoints(
+          opportunity.ownerId,
+          100,
+          'Oportunidad Ganada',
+          { opportunityId: id, value: opportunity.estimatedValue }
+        );
+      }
+
       await this.auditLogsService.create({
         userId: actorUserId,
         action: 'OPPORTUNITY_STAGE_CHANGED',

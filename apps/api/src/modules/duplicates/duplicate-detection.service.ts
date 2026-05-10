@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { OpportunityStage } from '@prisma/client';
+import { OpportunityStage, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export type PotentialDuplicate = {
@@ -160,7 +160,7 @@ export class DuplicateDetectionService {
                 },
               }
             : undefined,
-        ].filter(Boolean),
+        ].filter(Boolean) as Prisma.CompanyWhereInput[],
         businessUnitId: input.businessUnitId || undefined,
       },
       take: 12,
@@ -273,7 +273,7 @@ export class DuplicateDetectionService {
                 },
               }
             : undefined,
-        ].filter(Boolean),
+        ].filter(Boolean) as Prisma.ContactWhereInput[],
         companyId: input.companyId || undefined,
       },
       take: 12,
@@ -328,7 +328,7 @@ export class DuplicateDetectionService {
         entityType: 'contact',
         id: candidate.id,
         title: `${candidate.firstName} ${candidate.lastName}`,
-        subtitle: candidate.company?.name ?? candidate.email ?? 'Contacto',
+        subtitle: (candidate as any).company?.name ?? candidate.email ?? 'Contacto',
         href: '/contacts',
         matchScore,
         reasons,
@@ -357,7 +357,7 @@ export class DuplicateDetectionService {
                 },
               }
             : undefined,
-        ].filter(Boolean),
+        ].filter(Boolean) as Prisma.SalesOpportunityWhereInput[],
       },
       take: 12,
       select: {
@@ -387,12 +387,12 @@ export class DuplicateDetectionService {
       const reasons: string[] = [];
       let matchScore = 0;
 
-      if (input.companyId && candidate.company.id === input.companyId) {
+      if (input.companyId && (candidate as any).company.id === input.companyId) {
         reasons.push('Pertenece a la misma empresa');
         matchScore += 25;
       }
 
-      if (input.contactId && candidate.contact?.id === input.contactId) {
+      if (input.contactId && (candidate as any).contact?.id === input.contactId) {
         reasons.push('Usa el mismo contacto');
         matchScore += 25;
       }
@@ -416,7 +416,7 @@ export class DuplicateDetectionService {
         entityType: 'opportunity',
         id: candidate.id,
         title: candidate.title,
-        subtitle: `${candidate.company.name} • ${candidate.stage}`,
+        subtitle: `${(candidate as any).company.name} • ${candidate.stage}`,
         href: `/opportunities/${candidate.id}`,
         matchScore,
         reasons,

@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { EntityDialog } from '@/components/forms/entity-dialog';
 import { PotentialDuplicateModal } from '@/components/forms/potential-duplicate-modal';
 import { KanbanBoard } from '@/components/kanban/KanbanBoard';
+import { Leaderboard } from '@/components/gamification/Leaderboard';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/badge';
@@ -231,7 +232,10 @@ export default function OpportunitiesPage() {
         }
       />
 
-      <Card className="grid gap-3 p-4 md:grid-cols-5">
+      <div className="grid gap-6 xl:grid-cols-[1fr,320px]">
+        <div className="space-y-6">
+          <Card className="grid gap-3 p-4 md:grid-cols-5">
+
         <Input
           placeholder="Buscar por titulo, empresa o contacto"
           value={search}
@@ -405,6 +409,12 @@ export default function OpportunitiesPage() {
           }
         />
       )}
+      </div>
+
+      <aside className="space-y-6 sticky top-6 self-start">
+        <Leaderboard />
+      </aside>
+    </div>
 
       <EntityDialog
         open={open}

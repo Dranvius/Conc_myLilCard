@@ -12,12 +12,14 @@ import { ProposalQueryDto } from './dto/proposal-query.dto';
 import { UpdateProposalStatusDto } from './dto/update-proposal-status.dto';
 import { UpdateProposalDto } from './dto/update-proposal.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { CPQService } from '../cpq/cpq.service';
 
 @Injectable()
 export class ProposalsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly cpqService: CPQService,
   ) {}
 
   async findMany(query: ProposalQueryDto) {
@@ -96,7 +98,7 @@ export class ProposalsService {
     });
   }
 
-  private async buildItems(items: ProposalItemInputDto[]) {
+  private async buildItems(items: ProposalItemInputDto[], companyId: string) {
     const products = await this.prisma.product.findMany({
       where: {
         id: {
@@ -107,14 +109,28 @@ export class ProposalsService {
 
     const productMap = new Map(products.map((product) => [product.id, product]));
 
-    return items.map((item) => {
+    // Get automatic discounts from CPQ engine
+    const cpqResults = await this.cpqService.calculateAutomaticDiscounts({
+      items: items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice ?? Number(productMap.get(item.productId)?.unitPrice ?? 0),
+      })),
+      companyId,
+    });
+
+    return items.map((item, index) => {
       const product = productMap.get(item.productId);
       if (!product) {
         throw new NotFoundException(`Product ${item.productId} not found`);
       }
 
       const unitPrice = item.unitPrice ?? Number(product.unitPrice);
-      const discount = item.discount ?? 0;
+      
+      // Use manual discount if provided, otherwise use automatic discount from CPQ
+      const automaticDiscount = cpqResults[index].automaticDiscount;
+      const discount = item.discount ?? automaticDiscount;
+      
       const total = unitPrice * item.quantity - discount;
 
       return {
@@ -128,7 +144,15 @@ export class ProposalsService {
   }
 
   async create(createProposalDto: CreateProposalDto) {
-    const items = await this.buildItems(createProposalDto.items);
+    const opportunity = await this.prisma.salesOpportunity.findUniqueOrThrow({
+      where: { id: createProposalDto.opportunityId },
+      select: { companyId: true },
+    });
+
+    const items = await this.buildItems(
+      createProposalDto.items,
+      opportunity.companyId,
+    );
     const subtotal = items.reduce((sum, item) => sum + item.total, 0);
     const taxRate = createProposalDto.taxRate ?? 19;
     const taxAmount = subtotal * (taxRate / 100);
@@ -183,8 +207,13 @@ export class ProposalsService {
       where: { id },
     });
 
+    const opportunity = await this.prisma.salesOpportunity.findUniqueOrThrow({
+      where: { id: updateProposalDto.opportunityId ?? currentProposal.opportunityId },
+      select: { companyId: true },
+    });
+
     const items = updateProposalDto.items
-      ? await this.buildItems(updateProposalDto.items)
+      ? await this.buildItems(updateProposalDto.items, opportunity.companyId)
       : null;
 
     const subtotal = items

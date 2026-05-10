@@ -30,6 +30,7 @@ type OpportunityBase = Pick<
   | 'probability'
   | 'source'
   | 'contactId'
+  | 'ownerId'
 >;
 
 type ActivitySnapshot = {
