@@ -3,8 +3,9 @@ export function getCaptchaProvider() {
 }
 
 export function getApiBaseUrl() {
-  // En el servidor (SSR), usar la URL interna del contenedor/red Docker.
-  // En el navegador, usar la URL pública (localhost u origen externo).
+  // En el servidor (SSR/RSC) conectamos directo al API por la red interna.
+  // En el navegador usamos el proxy Next.js (/backend → API) para evitar
+  // cualquier problema de CORS, mixed-content o variables bakeadas en build.
   if (typeof window === 'undefined') {
     return (
       process.env.INTERNAL_API_URL ??
@@ -12,5 +13,5 @@ export function getApiBaseUrl() {
       'http://localhost:4000'
     );
   }
-  return process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+  return '/backend';
 }

@@ -186,7 +186,7 @@ export function LoginForm() {
           </div>
 
           <a
-            href={`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/auth/google`}
+            href="/backend/api/auth/google"
             className="flex w-full items-center justify-center gap-3 rounded-full border border-border bg-surface px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-surface-muted"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
