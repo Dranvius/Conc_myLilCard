@@ -97,7 +97,11 @@ Variables principales:
 - `NEXT_PUBLIC_CAPTCHA_SITE_KEY`
 - `NEXT_PUBLIC_CAPTCHA_PROVIDER`
 - `NEXT_PUBLIC_API_URL`
+- `INTERNAL_API_URL`
+- `FRONTEND_URL`
+- `GOOGLE_CALLBACK_URL`
 - `CORS_ORIGIN`
+- `COOKIE_DOMAIN` (opcional; dejar vacío si no necesitas compartir cookies entre subdominios)
 - `INITIAL_ADMIN_EMAIL`
 - `INITIAL_ADMIN_PASSWORD`
 

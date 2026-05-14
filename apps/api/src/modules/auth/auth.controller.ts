@@ -11,6 +11,7 @@ import {
   buildCookieOptions,
 } from '../../common/utils/cookies';
 import { AuthService } from './auth.service';
+import { getFrontendUrl } from './auth-env';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { GoogleAuthGuard } from './guards/google.guard';
@@ -167,7 +168,7 @@ export class AuthController {
     @Res() response: Response,
   ) {
     const profile = request.user as GoogleUserProfile;
-    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+    const frontendUrl = getFrontendUrl();
 
     try {
       const { tokens } = await this.authService.loginWithGoogle(profile);
