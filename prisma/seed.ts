@@ -406,6 +406,30 @@ async function main() {
       targetSegment: 'AMBULATORY' as any,
       requiresPrescription: false,
     },
+    {
+      businessUnitId: businessUnitMap.get('Medical')!,
+      name: 'Concentrador de Oxígeno de 10L',
+      sku: 'MED-O2-010',
+      category: 'Sistemas de Oxigenoterapia',
+      brand: 'Respira',
+      model: 'K5B-10',
+      unitPrice: 4200000,
+      stock: 10,
+      targetSegment: 'BOTH' as any,
+      requiresPrescription: true,
+    },
+    {
+      businessUnitId: businessUnitMap.get('Insumos')!,
+      name: 'Mascarilla Nasal para CPAP',
+      sku: 'INS-CPAP-001',
+      category: 'Consumibles CPAP',
+      brand: 'Respira',
+      model: 'N5A',
+      unitPrice: 120000,
+      stock: 100,
+      targetSegment: 'BOTH' as any,
+      requiresPrescription: false,
+    },
   ];
 
   for (const product of productSeeds) {
