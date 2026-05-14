@@ -127,6 +127,25 @@ async function main() {
         'products.read',
       ],
     },
+    {
+      name: 'SELLER',
+      description: 'Vendedor - Rol por defecto para nuevos usuarios',
+      permissions: [
+        'business-units.read',
+        'companies.read',
+        'companies.write',
+        'contacts.read',
+        'contacts.write',
+        'products.read',
+        'opportunities.read',
+        'opportunities.write',
+        'proposals.read',
+        'proposals.write',
+        'sales.read',
+        'sales.write',
+        'metrics.read',
+      ],
+    },
   ] as const;
 
   const roleRecords = new Map<string, string>();

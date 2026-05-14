@@ -1,0 +1,39 @@
+# Dependencias instaladas localmente
+node_modules/
+**/node_modules/
+
+# Lockfile de npm (reemplazado por pnpm)
+package-lock.json
+
+# Artefactos de build
+**/dist/
+**/.next/
+**/coverage/
+
+# Entornos y secretos
+.env
+.env.*
+!.env.example
+
+# Git
+.git/
+.gitignore
+
+# Claude Code worktrees y configuración local
+.claude/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Documentación (no necesaria en la imagen)
+*.md
+!README.md
+
+# Herramientas de desarrollo
+.vscode/
+.idea/
+
+# pnpm store local
+.pnpm-store/

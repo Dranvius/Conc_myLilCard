@@ -103,9 +103,15 @@ Variables principales:
 
 ## Instalación local
 
+> El proyecto usa **pnpm** como gestor de paquetes. Instalarlo una sola vez:
+>
+> ```bash
+> npm install -g pnpm
+> ```
+
 ```bash
-npm install
-npm run prisma:generate
+pnpm install
+pnpm run prisma:generate
 ```
 
 ## Levantar PostgreSQL con Docker Compose
@@ -124,31 +130,31 @@ La base comercial incremental para scoring, round robin, captura pública y noti
 Para desarrollo:
 
 ```bash
-npm run prisma:migrate
+pnpm run prisma:migrate
 ```
 
 Para despliegue o contenedores:
 
 ```bash
-npm run prisma:deploy
+pnpm run prisma:deploy
 ```
 
 ## Ejecutar seed
 
 ```bash
-npm run prisma:seed
+pnpm run prisma:seed
 ```
 
 También puedes hacerlo dentro del contenedor API:
 
 ```bash
-docker compose exec api npm run prisma:seed
+docker compose exec api pnpm run prisma:seed
 ```
 
 ## Ejecutar backend en desarrollo
 
 ```bash
-npm run dev:api
+pnpm run dev:api
 ```
 
 Backend:
@@ -159,7 +165,7 @@ Backend:
 ## Ejecutar frontend en desarrollo
 
 ```bash
-npm run dev:web
+pnpm run dev:web
 ```
 
 Frontend:
@@ -206,13 +212,13 @@ Esto permite probar el flujo sin secretos reales y mantiene la integración list
 ## Comandos útiles
 
 ```bash
-npm run build
-npm run lint
-npm run test
-npm run prisma:generate
-npm run prisma:migrate
-npm run prisma:deploy
-npm run prisma:seed
+pnpm run build
+pnpm run lint
+pnpm run test
+pnpm run prisma:generate
+pnpm run prisma:migrate
+pnpm run prisma:deploy
+pnpm run prisma:seed
 ```
 
 ## Cobertura funcional actual
@@ -254,7 +260,7 @@ La estructura quedó preparada para incorporar:
 - El pipeline ahora contempla origen del lead, scoring explicable `P0-P4`, alertas de estancamiento y seguimiento basado en `dueDate` / `completedAt`.
 - Se extendieron exportaciones Excel para contactos, oportunidades y ventas, además del patrón ya existente para empresas.
 - Las secuencias de email, firma electrónica, IA comercial, gamificación y CTI siguen pendientes porque requieren proveedor externo o definiciones de negocio adicionales.
-- Si vas a levantar estos cambios en otra base, ejecuta primero `npm run prisma:generate` y luego `npm run prisma:migrate` o `npm run prisma:deploy` según el entorno.
+- Si vas a levantar estos cambios en otra base, ejecuta primero `pnpm run prisma:generate` y luego `pnpm run prisma:migrate` o `pnpm run prisma:deploy` según el entorno.
 
 ## Estado de la entrega
 

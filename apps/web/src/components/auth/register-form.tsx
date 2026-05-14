@@ -1,10 +1,9 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Activity, LockKeyhole, Mail } from 'lucide-react';
+import { Activity, LockKeyhole, Mail, User } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -17,58 +16,61 @@ import { apiRequest } from '@/lib/api-client';
 
 const DEV_MODE = !process.env.NEXT_PUBLIC_CAPTCHA_SITE_KEY;
 
-const schema = z.object({
-  email: z.email('Ingresa un correo válido'),
-  password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres'),
-  captchaToken: z.string().min(1, 'Completa la validación CAPTCHA'),
-});
+const schema = z
+  .object({
+    name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
+    email: z.email('Ingresa un correo válido'),
+    password: z
+      .string()
+      .min(8, 'La contraseña debe tener al menos 8 caracteres'),
+    confirmPassword: z.string().min(1, 'Confirma tu contraseña'),
+    captchaToken: z.string().min(1, 'Completa la validación CAPTCHA'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Las contraseñas no coinciden',
+    path: ['confirmPassword'],
+  });
 
-type LoginValues = z.infer<typeof schema>;
+type RegisterValues = z.infer<typeof schema>;
 
-export function LoginForm() {
+export function RegisterForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    const error = searchParams.get('error');
-    if (error) {
-      toast.error(decodeURIComponent(error));
-    }
-  }, [searchParams]);
-
-  const form = useForm<LoginValues>({
+  const form = useForm<RegisterValues>({
     resolver: zodResolver(schema),
     defaultValues: {
+      name: '',
       email: '',
       password: '',
+      confirmPassword: '',
       captchaToken: DEV_MODE ? 'dev-token' : '',
     },
   });
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      await apiRequest('/auth/login', {
+      await apiRequest('/auth/register', {
         method: 'POST',
         body: JSON.stringify({
-          ...values,
+          name: values.name,
+          email: values.email,
+          password: values.password,
           captchaToken: DEV_MODE ? 'dev-token' : values.captchaToken,
         }),
       });
 
-      toast.success('Sesión iniciada correctamente');
+      toast.success('Cuenta creada correctamente. ¡Bienvenido!');
       router.push('/dashboard');
       router.refresh();
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : 'No fue posible iniciar sesión',
+        error instanceof Error ? error.message : 'No fue posible crear la cuenta',
       );
     }
   });
 
   return (
     <div className="grid min-h-screen lg:h-screen lg:overflow-hidden grid-cols-1 lg:grid-cols-[1.15fr_0.85fr]">
+      {/* Panel izquierdo — mismo diseño que login */}
       <section className="relative hidden overflow-hidden bg-[linear-gradient(180deg,#0f6c8d_0%,#084c61_100%)] px-10 py-12 text-white lg:flex lg:flex-col">
         <div className="inline-flex w-fit items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
           <Activity className="h-4 w-4" />
@@ -109,22 +111,38 @@ export function LoginForm() {
         </div>
       </section>
 
+      {/* Panel derecho — formulario de registro */}
       <section className="overflow-y-auto px-4 py-8 md:px-8">
         <div className="flex min-h-full items-center justify-center">
           <Card className="w-full max-w-xl p-8 md:p-10">
           <div className="mb-8">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-              Inicio de sesión
+              Crear cuenta
             </p>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground">
-              Bienvenido a RespiraCRM
+              Únete a RespiraCRM
             </h2>
             <p className="mt-2 text-sm text-muted">
-              Usa tus credenciales administrativas o comerciales para ingresar.
+              Completá los datos para crear tu cuenta. Tu rol inicial será
+              Vendedor.
             </p>
           </div>
 
           <form className="space-y-5" onSubmit={onSubmit}>
+            <Field
+              label="Nombre completo"
+              error={form.formState.errors.name?.message}
+            >
+              <div className="relative">
+                <User className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                <Input
+                  className="pl-11"
+                  placeholder="Juan Pérez"
+                  {...form.register('name')}
+                />
+              </div>
+            </Field>
+
             <Field
               label="Correo electrónico"
               error={form.formState.errors.email?.message}
@@ -133,7 +151,7 @@ export function LoginForm() {
                 <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
                 <Input
                   className="pl-11"
-                  placeholder="admin@respiracrm.local"
+                  placeholder="juan@empresa.com"
                   {...form.register('email')}
                 />
               </div>
@@ -148,8 +166,23 @@ export function LoginForm() {
                 <Input
                   className="pl-11"
                   type="password"
-                  placeholder="Ingresa tu contraseña"
+                  placeholder="Mínimo 8 caracteres"
                   {...form.register('password')}
+                />
+              </div>
+            </Field>
+
+            <Field
+              label="Confirmar contraseña"
+              error={form.formState.errors.confirmPassword?.message}
+            >
+              <div className="relative">
+                <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                <Input
+                  className="pl-11"
+                  type="password"
+                  placeholder="Repetí tu contraseña"
+                  {...form.register('confirmPassword')}
                 />
               </div>
             </Field>
@@ -170,9 +203,7 @@ export function LoginForm() {
               type="submit"
               disabled={form.formState.isSubmitting}
             >
-              {form.formState.isSubmitting
-                ? 'Validando acceso...'
-                : 'Iniciar sesión'}
+              {form.formState.isSubmitting ? 'Creando cuenta...' : 'Crear cuenta'}
             </Button>
           </form>
 
@@ -181,7 +212,7 @@ export function LoginForm() {
               <span className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-surface px-2 text-muted">O continuá con</span>
+              <span className="bg-surface px-2 text-muted">O registrate con</span>
             </div>
           </div>
 
@@ -199,15 +230,14 @@ export function LoginForm() {
           </a>
 
           <p className="mt-6 text-center text-sm text-muted">
-            ¿No tenés cuenta?{' '}
+            ¿Ya tenés cuenta?{' '}
             <Link
-              href="/register"
+              href="/login"
               className="font-semibold text-primary hover:underline"
             >
-              Registrate
+              Iniciá sesión
             </Link>
           </p>
-
           </Card>
         </div>
       </section>
