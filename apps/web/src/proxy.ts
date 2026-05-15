@@ -14,7 +14,9 @@ export function proxy(request: NextRequest) {
   }
 
   const isPublicPath = publicPaths.some((path) => pathname.startsWith(path));
-  const hasSession = request.cookies.has('access_token');
+  const accessToken = request.cookies.get('access_token')?.value?.trim();
+  const refreshToken = request.cookies.get('refresh_token')?.value?.trim();
+  const hasSession = Boolean(accessToken || refreshToken);
 
   if (!hasSession && !isPublicPath) {
     return NextResponse.redirect(new URL('/login', request.url));
