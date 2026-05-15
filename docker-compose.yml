@@ -37,12 +37,12 @@ services:
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       API_PORT: 4000
-      NODE_ENV: production
+      NODE_ENV: ${NODE_ENV:-development}
       INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:-admin@respiracrm.local}
       INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-Admin12345!}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:3000/backend/api/auth/google/callback}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:3000/api/auth/google/callback}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
     ports:
       - '4000:4000'

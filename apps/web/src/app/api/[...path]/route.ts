@@ -11,10 +11,7 @@
  */
 import { type NextRequest, NextResponse } from 'next/server';
 
-const API_URL =
-  process.env.INTERNAL_API_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  'http://localhost:4000';
+const API_URL = process.env.INTERNAL_API_URL ?? 'http://localhost:4000';
 
 // Headers hop-by-hop que no deben reenviarse
 const SKIP_REQ = new Set([

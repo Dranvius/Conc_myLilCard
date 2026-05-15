@@ -4,10 +4,7 @@
  */
 import { type NextRequest, NextResponse } from 'next/server';
 
-const API_URL =
-  process.env.INTERNAL_API_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  'http://localhost:4000';
+const API_URL = process.env.INTERNAL_API_URL ?? 'http://localhost:4000';
 
 function parseSetCookie(header: string) {
   const parts = header.split(';').map((p) => p.trim());

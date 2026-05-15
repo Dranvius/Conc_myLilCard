@@ -13,6 +13,6 @@ export function getFrontendUrl() {
 export function getGoogleCallbackUrl() {
   return (
     process.env.GOOGLE_CALLBACK_URL ??
-    `${getFrontendUrl()}/backend/api/auth/google/callback`
+    `${getFrontendUrl()}/api/auth/google/callback`
   );
 }

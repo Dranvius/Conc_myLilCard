@@ -3,7 +3,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Activity, LockKeyhole, Mail, User } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -12,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { apiRequest } from '@/lib/api-client';
 
 const DEV_MODE = !process.env.NEXT_PUBLIC_CAPTCHA_SITE_KEY;
 
@@ -34,7 +32,6 @@ const schema = z
 type RegisterValues = z.infer<typeof schema>;
 
 export function RegisterForm() {
-  const router = useRouter();
   const form = useForm<RegisterValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -237,7 +234,7 @@ export function RegisterForm() {
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
             </svg>
             Continuar con Google
-          </a>
+          </Link>
 
           <p className="mt-6 text-center text-sm text-muted">
             ¿Ya tenés cuenta?{' '}

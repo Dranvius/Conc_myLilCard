@@ -35,8 +35,10 @@ import { CPQModule } from './modules/cpq/cpq.module';
 import { AIModule } from './modules/ai/ai.module';
 import { GamificationModule } from './modules/gamification/gamification.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { HealthController } from './health.controller';
 
 @Module({
+  controllers: [HealthController],
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,

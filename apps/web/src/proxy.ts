@@ -1,10 +1,18 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-const publicPaths = ['/login', '/register', '/lead'];
+const publicPaths = ['/login', '/register', '/lead', '/health'];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const isApiRoute = pathname.startsWith('/api');
+
+  // Las rutas /api del App Router funcionan como proxy hacia el backend y
+  // no deben pasar por el guard de navegación del frontend.
+  if (isApiRoute) {
+    return NextResponse.next();
+  }
+
   const isPublicPath = publicPaths.some((path) => pathname.startsWith(path));
   const hasSession = request.cookies.has('access_token');
 
@@ -20,5 +28,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };
